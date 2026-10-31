@@ -401,6 +401,7 @@ object CharacterStore {
       journal::write,
       files::listing,
       files::write,
+      files::hasAsset,
     )
   }
 
