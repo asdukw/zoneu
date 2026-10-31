@@ -30,7 +30,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.zoneu.app.agent.LlmPreset
 import com.zoneu.app.theme.LocalZoneuDarkTheme
 import com.zoneu.app.ui.components.AppBanner
@@ -72,7 +71,7 @@ internal fun SectionLabel(text: String) {
 internal fun SettingsGroup(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
   Surface(
     modifier = modifier.fillMaxWidth(),
-    shape = RoundedCornerShape(20.dp),
+    shape = MaterialTheme.shapes.large,
     color = settingsCardColor(),
   ) {
     Column { content() }
@@ -119,7 +118,7 @@ internal fun SettingsRow(
     Column(Modifier.weight(1f)) {
       Text(
         text = title,
-        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
+        style = MaterialTheme.typography.bodyLarge,
         color =
           if (enabled) {
             MaterialTheme.colorScheme.onSurface

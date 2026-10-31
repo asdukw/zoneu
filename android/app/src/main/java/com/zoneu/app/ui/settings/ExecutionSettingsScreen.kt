@@ -124,12 +124,12 @@ private fun ApprovalPolicyRow() {
   }
   SettingsRow(
     glyph = GlyphKind.Check,
-    title = "写操作审批",
+    title = "自动允许写操作",
     subtitle =
       if (allowAllWrites) {
-        "全部允许 —— 日历 / 闹钟 / 邮件写入不再确认"
+        "已开启 —— 日历 / 闹钟 / 邮件写入不再确认"
       } else {
-        "每次写入都在聊天里确认"
+        "已关闭 —— 每次写入都在聊天里确认"
       },
     onClick = { toggle() },
   ) {
