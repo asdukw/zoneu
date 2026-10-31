@@ -7,6 +7,7 @@ internal object CardStorageTransactions {
   val lock = Any()
 }
 
+@Suppress("LongParameterList")
 internal class CardStorage(
   private val read: (String) -> CardSnapshot?,
   private val all: () -> List<CardSnapshot>,
