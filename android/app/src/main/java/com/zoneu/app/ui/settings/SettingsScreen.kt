@@ -119,7 +119,7 @@ internal fun SettingsScreen(
           SettingsGroup {
             SettingsRow(
               glyph = GlyphKind.Sparkles,
-              title = "模型与服务",
+              title = "AI 模型",
               subtitle = providerSubtitle(state),
               onClick = onOpenModelServices,
             ) {
@@ -128,7 +128,7 @@ internal fun SettingsScreen(
             SettingsDivider()
             SettingsRow(
               glyph = GlyphKind.Accessibility,
-              title = "执行层",
+              title = "手机操作",
               subtitle = executionSubtitle(accessibilityEnabled, allowAllWrites),
               onClick = onOpenExecution,
             ) {
@@ -137,7 +137,7 @@ internal fun SettingsScreen(
             SettingsDivider()
             SettingsRow(
               glyph = GlyphKind.Mail,
-              title = "连接器",
+              title = "邮箱与数据",
               subtitle = connectorSubtitle(state),
               onClick = onOpenConnectors,
             ) {
@@ -174,22 +174,22 @@ internal fun SettingsScreen(
 
 /** 执行层摘要：两个最常被问到的状态，具体开关都在分页里。 */
 private fun executionSubtitle(accessibilityEnabled: Boolean, allowAllWrites: Boolean): String {
-  val accessibility = if (accessibilityEnabled) "无障碍已开启" else "无障碍未开启"
-  val approval = if (allowAllWrites) "写操作全部允许" else "写操作每次确认"
+  val accessibility = if (accessibilityEnabled) "可以操作手机" else "需要开启手机操作权限"
+  val approval = if (allowAllWrites) "写入操作自动执行" else "写入操作会先询问"
   return "$accessibility · $approval"
 }
 
 private fun connectorSubtitle(state: SettingsViewModel.UiState): String =
   when {
-    state.gmailAccount != null -> "Gmail：${state.gmailAccount}"
-    state.gmailConnected -> "Gmail 已连接"
-    else -> "Gmail 等云端数据源（只读）"
+    state.gmailAccount != null -> "已连接 Gmail：${state.gmailAccount}"
+    state.gmailConnected -> "已连接 Gmail"
+    else -> "连接邮箱，让 zoneu 帮你读取邮件"
   }
 
 /** 定时任务入口。任务由对话创建和修改，设置首页只负责导航（`docs/scheduled-tasks.md`）。 */
 @Composable
 private fun ScheduledTasksSection(onOpen: () -> Unit) {
-  SectionLabel("任务")
+  SectionLabel("自动化")
   SettingsGroup {
     SettingsRow(
       glyph = GlyphKind.Clock,

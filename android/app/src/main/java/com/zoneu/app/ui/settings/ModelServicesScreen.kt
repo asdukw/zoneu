@@ -17,7 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 /**
- * 模型与服务（设置 → 模型与服务）：目前只有提供商入口。
+ * AI 模型设置（设置 → AI 模型）：管理回答 zoneu 所使用的模型。
  *
  * 单独一页而不是把「提供商」平铺到设置首页：这一组还会长出搜索服务、语音服务等配置，
  * 首页只留分组，细节沉到这里。
@@ -37,7 +37,7 @@ fun ModelServicesScreen(
 
   Surface(modifier = modifier.fillMaxSize(), color = settingsPageColor()) {
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-      SettingsHeader(title = "模型与服务", onBack = onBack)
+      SettingsHeader(title = "AI 模型", onBack = onBack)
       Column(
         modifier =
           Modifier.fillMaxSize()
