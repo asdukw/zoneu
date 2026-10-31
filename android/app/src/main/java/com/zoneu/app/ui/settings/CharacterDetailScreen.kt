@@ -422,8 +422,8 @@ private fun AboutCard(card: CharacterCard) {
       if (card.tags.isNotEmpty()) Detail("标签", card.tags.joinToString(" · "))
       Detail(
         "运行边界",
-        "卡内 system_prompt / post_history_instructions / 示例对话只保留供主动导出，不发送给模型。" +
-          "原始卡存于应用私有目录，但未使用 SQLCipher 加密。",
+        "默认不使用卡内的系统提示词、历史指令和示例对话；可在编辑角色的高级设置中开启。" +
+          "原始卡保存在应用私有目录，未使用 SQLCipher 加密。",
       )
     }
   }

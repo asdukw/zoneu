@@ -153,10 +153,10 @@ internal fun CharacterScreen(
           }
         }
 
-        SectionLabel("怎么工作")
+        SectionLabel("角色如何生效")
         SettingsGroup {
           Column(Modifier.padding(16.dp)) {
-            Note("卡里的 system_prompt 与示例对话不会进来 —— 前者常写着「忽略一切规则」，后者占 token 且口癖会被过度模仿。")
+            Note("默认不使用卡内的系统提示词和示例对话；可在编辑角色的高级设置中开启。")
             Note("常驻的世界设定每轮都在；其余条目在发消息那一刻按关键词命中才跟着这一轮送进去。")
             Note("记忆按角色分开存，只对它自己生效；内容由你写，模型不会偷偷往里加。")
           }

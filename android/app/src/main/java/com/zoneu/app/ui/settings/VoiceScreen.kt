@@ -105,7 +105,7 @@ internal fun VoiceScreen(
           .verticalScroll(rememberScrollState())
           .padding(horizontal = 16.dp),
     ) {
-      SectionLabel("Fish Audio")
+      SectionLabel("语音服务")
       SettingsGroup {
         SettingsRow(
           glyph = GlyphKind.Key,
