@@ -17,6 +17,7 @@ internal class CardStorage(
   val writeReceipt: (CardRequestReceipt) -> Unit,
   private val browse: (() -> CardSnapshotListing)? = null,
   private val writeAsset: (CharacterCard, ByteArray?) -> Unit = { card, _ -> write(card) },
+  private val hasAsset: (String) -> Boolean = { false },
 ) {
   fun <T> transaction(block: CardStorage.() -> T): T = synchronized(CardStorageTransactions.lock) { block() }
 
@@ -35,6 +36,8 @@ internal class CardStorage(
     val current = read(id) ?: throw CardOperationException("CARD_NOT_FOUND")
     writeAsset(current.card, png)
   }
+
+  fun missingAsset(id: String): Boolean = transaction { !hasAsset(id) }
 
   fun update(id: String, expected: String, transform: (CharacterCard) -> CharacterCard): CardSnapshot = transaction {
     val before = writable(id, expected)

@@ -84,7 +84,33 @@ internal class CharacterCardDownloader(
   private val client: OkHttpClient = productionClient(),
   private val clock: () -> Long = System::nanoTime,
 ) {
-  fun download(url: HttpUrl, control: CardDownloadControl): ByteArray {
+  private val avatarHosts = setOf("avatars.charhub.io", "avatars.chub.ai")
+
+  fun avatarUrl(text: String): HttpUrl {
+    val url = CardNetworkPolicy.url(text)
+    if (url.host !in avatarHosts) throw CardOperationException("CARD_AVATAR_UNAVAILABLE")
+    return url
+  }
+
+  fun download(url: HttpUrl, control: CardDownloadControl): ByteArray =
+    downloadInternal(url, control, CardInput.MAX_FILE, "image/png,application/json", 5)
+
+  fun downloadAvatar(url: HttpUrl, control: CardDownloadControl): ByteArray {
+    val checked = avatarUrl(url.toString())
+    val bytes = downloadInternal(checked, control, 8 * 1024 * 1024, "image/png", 0)
+    if (bytes.size < PNG_MAGIC.size || !PNG_MAGIC.indices.all { bytes[it] == PNG_MAGIC[it] }) {
+      throw CardOperationException("CARD_AVATAR_UNAVAILABLE")
+    }
+    return bytes
+  }
+
+  private fun downloadInternal(
+    url: HttpUrl,
+    control: CardDownloadControl,
+    maxBytes: Int,
+    accept: String,
+    maxRedirects: Int,
+  ): ByteArray {
     var current = url
     val deadline = clock() + TimeUnit.SECONDS.toNanos(90)
     repeat(6) { hop ->
@@ -92,29 +118,29 @@ internal class CharacterCardDownloader(
       CardNetworkPolicy.url(current.toString())
       val remaining = deadline - clock()
       verify(remaining > 0, "CARD_TIMEOUT")
-      val call = client.newCall(Request.Builder().url(current).header("Accept", "image/png,application/json").build())
+      val call = client.newCall(Request.Builder().url(current).header("Accept", accept).build())
       call.timeout().timeout(remaining, TimeUnit.NANOSECONDS)
       control.attach(call)
       call.execute().use { response ->
         control.check()
         if (response.code in listOf(301, 302, 303, 307, 308)) {
-          verify(hop < 5, "CARD_REDIRECT_LIMIT")
+          verify(hop < maxRedirects, "CARD_REDIRECT_LIMIT")
           val next = response.header("Location")?.let { current.resolve(it) }
             ?: throw CardOperationException("CARD_INVALID_REDIRECT")
           current = CardNetworkPolicy.url(next.toString())
         } else {
           verify(response.isSuccessful, "CARD_HTTP_${response.code}")
-          return readBody(response, control, deadline)
+          return readBody(response, control, deadline, maxBytes)
         }
       }
     }
     throw CardOperationException("CARD_REDIRECT_LIMIT")
   }
 
-  private fun readBody(response: okhttp3.Response, control: CardDownloadControl, deadline: Long): ByteArray {
+  private fun readBody(response: okhttp3.Response, control: CardDownloadControl, deadline: Long, maxBytes: Int): ByteArray {
     val body = response.body ?: throw CardOperationException("CARD_EMPTY_BODY")
     val length = body.contentLength()
-    verify(length <= CardInput.MAX_FILE, "CARD_TOO_LARGE")
+    verify(length <= maxBytes, "CARD_TOO_LARGE")
     val output = ByteArrayOutputStream()
     body.byteStream().use { stream ->
       val buffer = ByteArray(8192)
@@ -123,7 +149,7 @@ internal class CharacterCardDownloader(
         verify(clock() < deadline, "CARD_TIMEOUT")
         val count = stream.read(buffer)
         if (count < 0) break
-        verify(output.size() + count <= CardInput.MAX_FILE, "CARD_TOO_LARGE")
+        verify(output.size() + count <= maxBytes, "CARD_TOO_LARGE")
         output.write(buffer, 0, count)
       }
     }
@@ -136,6 +162,8 @@ internal class CharacterCardDownloader(
   }
 
   companion object {
+    internal val PNG_MAGIC = byteArrayOf(137.toByte(), 80, 78, 71, 13, 10, 26, 10)
+
     internal fun productionClient(): OkHttpClient = OkHttpClient.Builder()
       .dns(CardNetworkPolicy.checkedDns(Dns.SYSTEM))
       .proxy(Proxy.NO_PROXY)

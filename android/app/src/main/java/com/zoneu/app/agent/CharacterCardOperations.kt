@@ -44,8 +44,7 @@ object CharacterCardOperations {
     val downloaded = CharacterCardDownloader().download(api ?: url, control)
     val converted = if (api == null) null else ChubCardAdapter.convertWithMetadata(downloaded, url)
     val bytes = converted?.bytes ?: downloaded
-    val avatar = converted?.avatarUrl?.let { CharacterCardDownloader().download(it, control) }
-      ?.takeIf { it.isPng() }
+    val avatar = converted?.avatarUrl?.let { CharacterCardDownloader().downloadAvatar(it, control) }
     control.check()
     val card = CharacterImporter.fromBytes(bytes, "导入角色").card
     CharacterStore.transaction {

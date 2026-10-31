@@ -64,6 +64,8 @@ internal class CardStorageFiles(
     return File(directory, "$id.png").takeIf { it.isFile && it.length() > 0L }
   }
 
+  fun hasAsset(id: String): Boolean = avatarFile(id) != null
+
   fun delete(id: String) {
     CardStorage.requireId(id)
     AtomicFile(File(directory, "$id.json")).delete()

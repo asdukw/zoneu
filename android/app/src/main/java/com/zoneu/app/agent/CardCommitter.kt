@@ -38,7 +38,7 @@ internal class CardCommitter(private val storage: CardStorage) {
   ): Pair<CharacterCard, Boolean> =
     storage.transaction {
       existing(request, parameters)?.let {
-        if (png != null) storage.attachAsset(it.id, png)
+        if (png != null && storage.missingAsset(it.id)) storage.attachAsset(it.id, png)
         return@transaction it to true
       }
       control.check()
@@ -49,9 +49,7 @@ internal class CardCommitter(private val storage: CardStorage) {
       if (duplicate != null) {
         acknowledge(duplicate)
         control.check()
-        if (png != null) {
-          storage.attachAsset(duplicate.card.id, png)
-        }
+        if (png != null && storage.missingAsset(duplicate.card.id)) storage.attachAsset(duplicate.card.id, png)
         writeReceipt(
           CardRequestReceipt(
             request,
