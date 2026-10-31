@@ -127,8 +127,8 @@ private fun ConnectionCard(
       subtitle =
         when {
           state.awaitingConsent -> "请在浏览器里完成授权…"
-          state.connected -> "已连接，可读取邮件"
-          else -> "连接后即可读取邮件；zoneu 不会拿到你的密码"
+          state.connected -> "已连接，可读取邮件；写入和发送操作会先确认"
+          else -> "连接后即可读取和处理邮件；zoneu 不会拿到你的密码"
         },
     ) {
       StatusBadge(
@@ -270,7 +270,7 @@ private fun CapabilityCard() {
       Spacer(Modifier.height(6.dp))
       Text(
         text =
-          "目前仅支持读取邮件：不会发送、删除或标记已读。" +
+          "可以读取和处理邮件，包括发送、修改和删除；涉及写入的操作会先请求确认。" +
             "邮件正文只会作为模型工具结果使用，不写入日志或本机存储。",
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,

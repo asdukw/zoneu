@@ -70,8 +70,8 @@ internal fun ConnectorsScreen(
         }
         Text(
           text =
-            "连接器让模型直接读你云端账号里的数据（不经过无障碍）。" +
-              "授权只在本机保存一个 refresh token，由 Keystore 封装；本机不保存邮箱副本。",
+            "连接邮箱后，zoneu 可以读取和处理邮件；写入操作会经过确认。" +
+              "授权信息只保存在本机的安全存储中，本机不保存邮箱副本。",
           style = MaterialTheme.typography.labelSmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           modifier = Modifier.padding(start = 8.dp, top = 12.dp),
