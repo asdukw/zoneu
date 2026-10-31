@@ -30,6 +30,11 @@ internal class CardStorage(
 
   fun create(card: CharacterCard, png: ByteArray? = null): CardSnapshot = transaction { createWithEvidence(card, null, png) }
 
+  fun attachAsset(id: String, png: ByteArray) = transaction {
+    val current = read(id) ?: throw CardOperationException("CARD_NOT_FOUND")
+    writeAsset(current.card, png)
+  }
+
   fun update(id: String, expected: String, transform: (CharacterCard) -> CharacterCard): CardSnapshot = transaction {
     val before = writable(id, expected)
     val next = sanitize(before.card, transform(before.card))

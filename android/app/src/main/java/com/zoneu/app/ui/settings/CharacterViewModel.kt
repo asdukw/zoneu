@@ -131,12 +131,18 @@ class CharacterViewModel(private val appContext: Context) : ViewModel() {
             parsed.card.importMetadata?.contentHash?.let { hash ->
               CharacterStore.cards(appContext).firstOrNull { it.importMetadata?.contentHash == hash }
             }
+          val avatarBytes =
+            bytes.takeIf {
+              it.size >= 8 &&
+                it.copyOfRange(0, 8).contentEquals(
+                  byteArrayOf(137.toByte(), 80, 78, 71, 13, 10, 26, 10),
+                )
+            }
           if (existing == null) {
-            CharacterStore.createImported(
-              appContext,
-              parsed.card,
-              bytes.takeIf { it.size >= 8 && it.copyOfRange(0, 8).contentEquals(byteArrayOf(137.toByte(), 80, 78, 71, 13, 10, 26, 10)) },
-            )
+            CharacterStore.createImported(appContext, parsed.card, avatarBytes)
+          } else if (avatarBytes != null && CharacterStore.avatarFile(appContext, existing.id) == null) {
+            // Re-importing a card must also be able to repair an older import that lost its PNG.
+            CharacterStore.attachAvatar(appContext, existing.id, avatarBytes)
           }
           parsed
         }

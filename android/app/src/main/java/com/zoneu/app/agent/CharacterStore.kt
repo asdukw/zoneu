@@ -373,6 +373,8 @@ object CharacterStore {
 
   fun avatarFile(context: Context, id: String): File? = CardStorageFiles(context, decoder, encoder).avatarFile(id)
 
+  fun attachAvatar(context: Context, id: String, png: ByteArray) = storage(context).attachAsset(id, png)
+
   fun createImported(context: Context, card: CharacterCard, png: ByteArray? = null): CardSnapshot = storage(context).create(card, png)
 
   fun updateImported(
