@@ -189,5 +189,3 @@ object CharacterCardOperations {
     }
   }
 }
-
-private fun ByteArray.isPng(): Boolean = size >= 8 && copyOfRange(0, 8).contentEquals(byteArrayOf(137.toByte(), 80, 78, 71, 13, 10, 26, 10))

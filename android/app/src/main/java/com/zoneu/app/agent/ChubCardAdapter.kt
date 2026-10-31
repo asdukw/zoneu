@@ -33,6 +33,7 @@ internal object ChubCardAdapter {
 
   fun convert(bytes: ByteArray, source: HttpUrl): ByteArray = convertWithMetadata(bytes, source).bytes
 
+  @Suppress("CyclomaticComplexMethod")
   fun convertWithMetadata(bytes: ByteArray, source: HttpUrl): Converted {
     require(bytes.size <= CardInput.MAX_JSON) { "CARD_TOO_LARGE" }
     val root = runCatching { Json.parseToJsonElement(bytes.toString(Charsets.UTF_8)) as? JsonObject }.getOrNull()
