@@ -6,7 +6,7 @@ import com.zoneu.app.ui.chat.LocalWorldNavigation
 @Composable
 internal fun EntertainmentSection(onOpenCharacters: () -> Unit) {
   val worlds = LocalWorldNavigation.current
-  SectionLabel("娱乐")
+  SectionLabel("角色与世界")
   SettingsGroup {
     SettingsRow(
       glyph = GlyphKind.Sparkles,

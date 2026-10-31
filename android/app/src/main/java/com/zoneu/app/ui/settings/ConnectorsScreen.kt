@@ -53,7 +53,7 @@ internal fun ConnectorsScreen(
 ) {
   Surface(modifier = modifier.fillMaxSize(), color = settingsPageColor()) {
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-      SettingsHeader(title = "连接器", onBack = onBack)
+      SettingsHeader(title = "邮箱", onBack = onBack)
       Column(
         modifier =
           Modifier.fillMaxSize()

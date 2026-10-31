@@ -127,8 +127,8 @@ private fun ConnectionCard(
       subtitle =
         when {
           state.awaitingConsent -> "请在浏览器里完成授权…"
-          state.connected -> "权限 gmail.modify；读邮件与审批后写入 / 发送"
-          else -> "连接后才能读取邮件；zoneu 不会拿到你的密码"
+          state.connected -> "已连接，可读取邮件"
+          else -> "连接后即可读取邮件；zoneu 不会拿到你的密码"
         },
     ) {
       StatusBadge(
@@ -270,10 +270,8 @@ private fun CapabilityCard() {
       Spacer(Modifier.height(6.dp))
       Text(
         text =
-          "目前没有发送、删除、标记已读等写操作 —— 工具面是纯只读的。" +
-            "但授权时要的是 gmail.modify（含读 / 写 / 发）：Google 对已安装应用不支持增量授权，" +
-            "以后再加写操作就得让所有已连接的用户重走一遍同意页，所以一次要齐。" +
-            "邮件正文只出现在给模型的工具结果里，不落日志、不落盘，本机不保存邮箱副本。",
+          "目前仅支持读取邮件：不会发送、删除或标记已读。" +
+            "邮件正文只会作为模型工具结果使用，不写入日志或本机存储。",
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )

@@ -44,7 +44,7 @@ fun ExecutionSettingsScreen(
 
   Surface(modifier = modifier.fillMaxSize(), color = settingsPageColor()) {
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-      SettingsHeader(title = "执行层", onBack = onBack)
+      SettingsHeader(title = "手机操作", onBack = onBack)
       Column(
         modifier =
           Modifier.fillMaxSize()
@@ -58,9 +58,9 @@ fun ExecutionSettingsScreen(
             title = "无障碍",
             subtitle =
               if (accessibilityEnabled) {
-                "已开启 —— 读屏 / 点击 / 截图可用"
+                "已开启 —— 可以读取屏幕并操作其他应用"
               } else {
-                "未开启 —— 任务只能聊天，动不了手机；点这里去系统设置"
+                "未开启 —— 无法读取屏幕或操作其他应用；聊天和已连接服务仍可用"
               },
             onClick = { context.startActivity(AccessibilityStatus.settingsIntent()) },
           ) {
@@ -82,7 +82,7 @@ fun ExecutionSettingsScreen(
               if (overlayEnabled) {
                 "离开 zoneu 执行任务时显示"
               } else {
-                "已关闭 —— 任务在执行中不会有任何屏幕提示"
+                "已关闭 —— 执行任务时不显示悬浮球"
               },
             onClick = {
               val next = !overlayEnabled
@@ -124,12 +124,12 @@ private fun ApprovalPolicyRow() {
   }
   SettingsRow(
     glyph = GlyphKind.Check,
-    title = "自动允许写操作",
+    title = "自动执行需确认的操作",
     subtitle =
       if (allowAllWrites) {
-        "已开启 —— 日历 / 闹钟 / 邮件写入不再确认"
+        "已开启 —— 支持此确认机制的操作不会逐次询问"
       } else {
-        "已关闭 —— 每次写入都在聊天里确认"
+        "已关闭 —— 发送邮件、修改日历等操作会先征得同意"
       },
     onClick = { toggle() },
   ) {
