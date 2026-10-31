@@ -8,6 +8,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /** 仅识别精确公开角色路径；不把相似主机或任意路径当成 Chub API。 */
 internal object ChubCardAdapter {
@@ -28,7 +29,11 @@ internal object ChubCardAdapter {
 
   private fun validSegment(value: String): Boolean = value.matches(Regex("[A-Za-z0-9_.-]{1,160}")) && value !in listOf(".", "..")
 
-  fun convert(bytes: ByteArray, source: HttpUrl): ByteArray {
+  data class Converted(val bytes: ByteArray, val avatarUrl: HttpUrl?)
+
+  fun convert(bytes: ByteArray, source: HttpUrl): ByteArray = convertWithMetadata(bytes, source).bytes
+
+  fun convertWithMetadata(bytes: ByteArray, source: HttpUrl): Converted {
     require(bytes.size <= CardInput.MAX_JSON) { "CARD_TOO_LARGE" }
     val root = runCatching { Json.parseToJsonElement(bytes.toString(Charsets.UTF_8)) as? JsonObject }.getOrNull()
       ?: throw CardOperationException("CARD_SOURCE_CHANGED")
@@ -67,10 +72,15 @@ internal object ChubCardAdapter {
     while (key in ext) key = "com.zoneu.chub_source.${suffix++}"
     ext[key] = archive
     data["extensions"] = JsonObject(ext)
-    return buildJsonObject {
+    val avatarUrl = ((node["avatar_url"] ?: node["avatar"]) as? JsonPrimitive)
+      ?.content
+      ?.let { it.toHttpUrlOrNull() }
+      ?.takeIf { it.scheme == "https" && it.username.isEmpty() && it.password.isEmpty() }
+    val output = buildJsonObject {
       put("spec", "chara_card_v2")
       put("spec_version", "2.0")
       put("data", JsonObject(data))
-    }.toString().toByteArray(Charsets.UTF_8)
+    }
+    return Converted(output.toString().toByteArray(Charsets.UTF_8), avatarUrl)
   }
 }

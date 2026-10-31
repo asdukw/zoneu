@@ -37,7 +37,10 @@ internal class CardCommitter(private val storage: CardStorage) {
     png: ByteArray? = null,
   ): Pair<CharacterCard, Boolean> =
     storage.transaction {
-      existing(request, parameters)?.let { return@transaction it to true }
+      existing(request, parameters)?.let {
+        if (png != null) storage.attachAsset(it.id, png)
+        return@transaction it to true
+      }
       control.check()
       val hash = cardHash(cardCanonical(card.importMetadata!!.raw!!).toString())
       val prior = readReceipt(request)
@@ -46,6 +49,9 @@ internal class CardCommitter(private val storage: CardStorage) {
       if (duplicate != null) {
         acknowledge(duplicate)
         control.check()
+        if (png != null) {
+          storage.attachAsset(duplicate.card.id, png)
+        }
         writeReceipt(
           CardRequestReceipt(
             request,
