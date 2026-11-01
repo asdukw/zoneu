@@ -3,7 +3,6 @@ package com.zoneu.app.ui.settings
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
@@ -15,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.zoneu.app.ui.components.zoneuPageInsets
 
 /**
  * AI 模型设置（设置 → AI 模型）：管理回答 zoneu 所使用的模型。
@@ -36,7 +36,7 @@ fun ModelServicesScreen(
   LaunchedEffect(Unit) { viewModel.reload() }
 
   Surface(modifier = modifier.fillMaxSize(), color = settingsPageColor()) {
-    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+    Column(Modifier.fillMaxSize().zoneuPageInsets()) {
       SettingsHeader(title = "AI 模型", onBack = onBack)
       Column(
         modifier =

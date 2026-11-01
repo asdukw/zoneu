@@ -96,7 +96,11 @@ fun UserQuestionSheet(pending: PendingUserQuestions) {
     if (batch.size == pending.questions.size) UserQuestionHub.answer(batch)
   }
 
-  ModalBottomSheet(onDismissRequest = { UserQuestionHub.dismiss() }, sheetState = sheetState) {
+  ModalBottomSheet(
+    onDismissRequest = { UserQuestionHub.dismiss() },
+    sheetState = sheetState,
+    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+  ) {
     // imePadding：写自定义回答时键盘会盖住输入框和「继续 / 提交」，这一步不能靠用户自己滚。
     Column(Modifier.fillMaxWidth().imePadding().padding(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
       SheetHeader(pending, index)
@@ -219,7 +223,10 @@ private fun CustomAnswerField(value: String, onValueChange: (String) -> Unit) {
   Spacer(Modifier.height(12.dp))
   Text("或者直接说", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
   Spacer(Modifier.height(6.dp))
-  Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(12.dp)) {
+  Surface(
+    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    shape = MaterialTheme.shapes.small,
+  ) {
     BasicTextField(
       value = value,
       onValueChange = onValueChange,

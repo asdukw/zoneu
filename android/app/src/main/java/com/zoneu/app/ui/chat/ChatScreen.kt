@@ -10,12 +10,16 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,10 +27,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,11 +41,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -50,6 +59,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -66,12 +76,19 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -89,10 +106,12 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -144,9 +163,15 @@ import com.zoneu.app.device.DeviceAction
 import com.zoneu.app.node.NodeRuntime
 import com.zoneu.app.schedule.ScheduledTaskScheduler
 import com.zoneu.app.schedule.needsExactAlarmReminder
+import com.zoneu.app.theme.ZoneuSize
+import com.zoneu.app.theme.ZoneuSpacing
+import com.zoneu.app.theme.zoneuColors
+import com.zoneu.app.theme.zoneuShapes
 import com.zoneu.app.ui.components.AppBanner
 import com.zoneu.app.ui.components.ProviderModelIcon
 import com.zoneu.app.ui.settings.ChevronRight
+import com.zoneu.app.ui.settings.Glyph
+import com.zoneu.app.ui.settings.GlyphKind
 import com.zoneu.app.voice.RecognizedText
 import com.zoneu.app.voice.VoiceInput
 import com.zoneu.app.voice.VoiceReader
@@ -780,6 +805,10 @@ private fun ChatBody(
   DictationErrorLinger(dictation)
   AutoReadOnFinish(messages = state.messages, sessionId = state.sessionId)
 
+  // 顶栏随消息列表滚动收起/还原：内容区滚起来后改由 surfaceContainer 承托，
+  // 不再靠一条永远不变的白条与正文抢注意力。
+  val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
+
   // 跟随流式输出的底部。规则见 FollowOutput：用户一上手就交出滚动权，回到列表底部再交回来。
   var following by remember { mutableStateOf(true) }
   val lastUserMessageId = state.messages.lastOrNull { it.role == ChatRole.User }?.id
@@ -791,7 +820,13 @@ private fun ChatBody(
     onFollowingChange = { following = it },
   )
 
-  Column(modifier.fillMaxSize().safeDrawingPadding()) {
+  // 只消费左右/刘海方向的 insets：顶部由 TopAppBar 自己处理，底部由外壳底栏与
+  // 输入框的 imePadding 处理。再套一层 safeDrawingPadding 会出现双倍底边。
+  Column(
+    modifier
+      .fillMaxSize()
+      .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
+  ) {
     val modelSubtitle =
       listOf(state.providerName, state.model).filter { it.isNotBlank() }.joinToString(" · ")
     ChatTopBar(
@@ -800,32 +835,24 @@ private fun ChatBody(
       onOpenSessions = onOpenSessions,
       onNewSession = onNewSession,
       onLeaveRoleplay = if (state.inRoleplay) onLeaveRoleplay else null,
+      scrollBehavior = scrollBehavior,
     )
     PermissionPrompts()
     StatusBanners(state = state, voiceError = voiceError, dictation = dictation)
 
-    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-      MessageList(
-        onOpenCharacterDetail = onOpenCharacterDetail,
-        state = state,
-        listState = listState,
-        // 平板 / 横屏上正文铺满整屏一行会超过 100 个字符，读起来很累；限宽后居中。
-        modifier = Modifier.widthIn(max = CHAT_CONTENT_MAX_WIDTH).fillMaxSize(),
-        speakingId = voiceState?.messageId,
-        greetings = greetings,
-        onPickGreeting = onSeedGreeting,
-        actions = actions,
-        canContinue = state.tavernDirect && !state.isStreaming,
-      )
-
-      JumpToBottomButton(
-        visible = !following,
-        onClick = {
-          following = true
-          listState.requestScrollToBottom()
-        },
-      )
-    }
+    ConversationArea(
+      state = state,
+      listState = listState,
+      scrollBehavior = scrollBehavior,
+      speakingId = voiceState?.messageId,
+      greetings = greetings,
+      onSeedGreeting = onSeedGreeting,
+      actions = actions,
+      onOpenCharacterDetail = onOpenCharacterDetail,
+      onUseSuggestion = onInputChange,
+      following = following,
+      onFollow = { following = true },
+    )
 
     // 前情提要只出现在扮演会话里：日常对话没有「记忆」这回事，摆一行只会让人以为有。
     if (state.activeCharacterId != null) {
@@ -847,6 +874,48 @@ private fun ChatBody(
       onMicClick = onMicClick,
       onImpersonate = onImpersonate.takeIf { state.tavernDirect && !state.writingLine },
       writingLine = state.writingLine,
+    )
+  }
+}
+
+@Composable
+private fun ColumnScope.ConversationArea(
+  state: ChatUiState,
+  listState: LazyListState,
+  scrollBehavior: TopAppBarScrollBehavior,
+  speakingId: String?,
+  greetings: List<String>,
+  onSeedGreeting: (String) -> Unit,
+  actions: BubbleActions,
+  onOpenCharacterDetail: (String) -> Unit,
+  onUseSuggestion: (String) -> Unit,
+  following: Boolean,
+  onFollow: () -> Unit,
+) {
+  Box(
+    Modifier.weight(1f).fillMaxWidth().nestedScroll(scrollBehavior.nestedScrollConnection),
+    contentAlignment = Alignment.TopCenter,
+  ) {
+    MessageList(
+      onOpenCharacterDetail = onOpenCharacterDetail,
+      state = state,
+      listState = listState,
+      // 平板 / 横屏上正文铺满整屏一行会超过 100 个字符，读起来很累；限宽后居中。
+      modifier = Modifier.widthIn(max = CHAT_CONTENT_MAX_WIDTH).fillMaxSize(),
+      speakingId = speakingId,
+      greetings = greetings,
+      onPickGreeting = onSeedGreeting,
+      actions = actions,
+      canContinue = state.tavernDirect && !state.isStreaming,
+      onUseSuggestion = onUseSuggestion,
+    )
+
+    JumpToBottomButton(
+      visible = !following,
+      onClick = {
+        onFollow()
+        listState.requestScrollToBottom()
+      },
     )
   }
 }
@@ -1039,15 +1108,16 @@ private fun MessageList(
   actions: BubbleActions = BubbleActions(),
   canContinue: Boolean = false,
   onOpenCharacterDetail: (String) -> Unit = {},
+  onUseSuggestion: (String) -> Unit = {},
 ) {
   // 挂在最后一条助手消息上而不是每一条：中间那几条重写没有意义，
   // 而删中间一轮会让后面的对话悬在半空。
   val tailId = state.messages.lastOrNull { it.role == ChatRole.Assistant }?.id
   LazyColumn(
     state = listState,
-    modifier = modifier,
-    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 16.dp),
-    verticalArrangement = Arrangement.spacedBy(18.dp),
+    modifier = modifier.testTag("chat_message_list"),
+    contentPadding = PaddingValues(horizontal = ZoneuSpacing.lg, vertical = ZoneuSpacing.md),
+    verticalArrangement = Arrangement.spacedBy(ZoneuSpacing.lg),
   ) {
     if (state.messages.isEmpty()) {
       item {
@@ -1059,19 +1129,22 @@ private fun MessageList(
             characterName = state.activeCharacterName,
             greetings = greetings,
             onPickGreeting = onPickGreeting,
+            onUseSuggestion = onUseSuggestion,
           )
         }
       }
     }
-    items(items = state.messages, key = { it.id }) { message ->
-      MessageBubble(
-        onOpenCharacterDetail = onOpenCharacterDetail,
-        message = message,
-        speakingId = speakingId,
-        tail = message.id == tailId && !state.isStreaming,
-        actions = actions,
-        canContinue = canContinue,
-      )
+    items(items = state.messages, key = { it.id }, contentType = { it.role }) { message ->
+      Box(Modifier.animateItem()) {
+        MessageBubble(
+          onOpenCharacterDetail = onOpenCharacterDetail,
+          message = message,
+          speakingId = speakingId,
+          tail = message.id == tailId && !state.isStreaming,
+          actions = actions,
+          canContinue = canContinue,
+        )
+      }
     }
   }
 }
@@ -1176,6 +1249,7 @@ private fun LazyListState.isAtBottom(tolerancePx: Int = 8): Boolean {
     last.offset + last.size + info.afterContentPadding <= info.viewportEndOffset + tolerancePx
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatTopBar(
   title: String,
@@ -1183,53 +1257,57 @@ private fun ChatTopBar(
   onOpenSessions: () -> Unit,
   onNewSession: () -> Unit,
   onLeaveRoleplay: (() -> Unit)? = null,
+  scrollBehavior: TopAppBarScrollBehavior? = null,
 ) {
-  Row(
-    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
-    IconButton(
-      onClick = onOpenSessions,
-      modifier = Modifier.semantics { contentDescription = "打开会话列表" },
-    ) {
-      MenuGlyph(tint = MaterialTheme.colorScheme.onSurface)
-    }
-    Column(Modifier.weight(1f).padding(horizontal = 6.dp)) {
-      Text(
-        text = title,
-        style = MaterialTheme.typography.titleMediumEmphasized,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-      )
-      if (subtitle.isNotBlank()) {
+  TopAppBar(
+    modifier = Modifier.testTag("chat_top_bar"),
+    title = {
+      Column(Modifier.padding(end = ZoneuSpacing.sm)) {
         Text(
-          text = subtitle,
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          text = title,
+          style = MaterialTheme.typography.titleLargeEmphasized,
           maxLines = 1,
           overflow = TextOverflow.Ellipsis,
         )
+        if (subtitle.isNotBlank()) {
+          Text(
+            text = subtitle,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+        }
       }
-    }
-    if (onLeaveRoleplay != null) {
-      Text(
-        text = "退出扮演",
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier =
-          Modifier.defaultMinSize(minHeight = 48.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(role = Role.Button, onClickLabel = "退出角色扮演", onClick = onLeaveRoleplay)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-      )
-    }
-    IconButton(
-      onClick = onNewSession,
-      modifier = Modifier.semantics { contentDescription = "新建会话" },
-    ) {
-      PlusGlyph(tint = MaterialTheme.colorScheme.onSurface)
-    }
-  }
+    },
+    navigationIcon = {
+      IconButton(
+        onClick = onOpenSessions,
+        modifier = Modifier.semantics { contentDescription = "打开会话列表" },
+      ) {
+        MenuGlyph(tint = MaterialTheme.colorScheme.onSurface)
+      }
+    },
+    actions = {
+      if (onLeaveRoleplay != null) {
+        TextButton(onClick = onLeaveRoleplay) {
+          Text(text = "退出扮演", style = MaterialTheme.typography.labelMedium)
+        }
+      }
+      IconButton(
+        onClick = onNewSession,
+        modifier = Modifier.semantics { contentDescription = "新建会话" },
+      ) {
+        PlusGlyph(tint = MaterialTheme.colorScheme.onSurface)
+      }
+    },
+    colors =
+      TopAppBarDefaults.topAppBarColors(
+        containerColor = MaterialTheme.colorScheme.background,
+        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+      ),
+    scrollBehavior = scrollBehavior,
+  )
 }
 
 /**
@@ -1451,30 +1529,17 @@ private enum class DrawerTab(val label: String) {
 
 @Composable
 private fun DrawerTabs(tab: DrawerTab, onSelect: (DrawerTab) -> Unit) {
-  Row(
-    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-    horizontalArrangement = Arrangement.spacedBy(6.dp),
+  SingleChoiceSegmentedButtonRow(
+    modifier = Modifier.fillMaxWidth().padding(horizontal = ZoneuSpacing.md, vertical = ZoneuSpacing.sm),
   ) {
-    DrawerTab.entries.forEach { entry ->
-      val selected = entry == tab
-      Surface(
-        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-        shape = RoundedCornerShape(10.dp),
-        modifier = Modifier.weight(1f).selectable(selected = selected, role = Role.Tab) { onSelect(entry) },
-      ) {
-        Text(
-          text = entry.label,
-          textAlign = TextAlign.Center,
-          style = MaterialTheme.typography.labelLarge,
-          color =
-            if (selected) {
-              MaterialTheme.colorScheme.onSecondaryContainer
-            } else {
-              MaterialTheme.colorScheme.onSurfaceVariant
-            },
-          modifier = Modifier.padding(vertical = 8.dp),
-        )
-      }
+    DrawerTab.entries.forEachIndexed { index, entry ->
+      SegmentedButton(
+        selected = entry == tab,
+        onClick = { onSelect(entry) },
+        shape = SegmentedButtonDefaults.itemShape(index = index, count = DrawerTab.entries.size),
+        icon = {},
+        label = { Text(text = entry.label, style = MaterialTheme.typography.labelLarge) },
+      )
     }
   }
 }
@@ -1656,7 +1721,10 @@ private fun SessionDrawer(
   // 只在会话列表变化时重算：聊天每来一个 token 都重组这一层，filter + 分组 + 读时钟没必要跟着跑。
   val grouped = remember(normalSessions) { groupSessions(normalSessions, System.currentTimeMillis()) }
 
-  ModalDrawerSheet(drawerContainerColor = MaterialTheme.colorScheme.surface) {
+  ModalDrawerSheet(
+    drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+    drawerShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp),
+  ) {
     Column(Modifier.fillMaxHeight().padding(horizontal = 12.dp, vertical = 12.dp)) {
       // 酒馆分区不设「新建」：会话必须挂在一张卡上，新建就意味着先选卡 ——
       // 那件事由各角色行右侧的「+」完成，头部再放一个只会让人以为能凭空开会话。
@@ -1746,23 +1814,23 @@ private fun DrawerFooter(
   HorizontalDivider(Modifier.padding(vertical = 8.dp))
   if (roleplayEntries) {
     DrawerNavRow(label = "管理角色卡", onClick = onOpenCharacters) {
-      PersonGlyph(tint = MaterialTheme.colorScheme.onSurfaceVariant)
+      Glyph(kind = GlyphKind.Person, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     DrawerNavRow(label = "管理世界书", onClick = worldNavigation.openLibrary) {
-      PersonGlyph(tint = MaterialTheme.colorScheme.onSurfaceVariant)
+      Glyph(kind = GlyphKind.Book, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     if (currentId != null) {
       DrawerNavRow(label = "本段会话的世界配置", onClick = { worldNavigation.openBindings("session", currentId) }) {
-        PersonGlyph(tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Glyph(kind = GlyphKind.Sliders, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
       }
     }
     // 酒馆里的模型入口：每段会话会记住自己用哪个模型（回来时自动装回去）。
     DrawerNavRow(label = "本段会话的模型", onClick = onOpenModelSwitch) {
-      PersonGlyph(tint = MaterialTheme.colorScheme.onSurfaceVariant)
+      Glyph(kind = GlyphKind.Sparkles, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
   }
   DrawerNavRow(label = "设置", onClick = onOpenSettings) {
-    CogGlyph(tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    Glyph(kind = GlyphKind.Cog, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
   }
   if (configSummary.isNotBlank()) {
     Text(
@@ -1783,9 +1851,9 @@ private fun DrawerNavRow(
   Row(
     modifier =
       Modifier.fillMaxWidth()
-        .clip(RoundedCornerShape(10.dp))
+        .clip(MaterialTheme.shapes.small)
         .clickable(onClick = onClick)
-        .padding(horizontal = 12.dp, vertical = 12.dp),
+        .padding(horizontal = ZoneuSpacing.md, vertical = ZoneuSpacing.md),
     verticalAlignment = Alignment.CenterVertically,
   ) {
     leading()
@@ -1911,21 +1979,34 @@ private fun EmptyHint(
   characterName: String? = null,
   greetings: List<String> = emptyList(),
   onPickGreeting: (String) -> Unit = {},
+  onUseSuggestion: (String) -> Unit = {},
 ) {
   Column(
-    modifier = Modifier.fillMaxWidth().padding(top = 96.dp),
+    modifier =
+      Modifier.fillMaxWidth()
+        .padding(start = ZoneuSpacing.lg, end = ZoneuSpacing.lg, top = ZoneuSpacing.xxxl),
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
+    // 英雄区：一个形状化的品牌标记 + 大标题。空会话是用户第一眼看到的东西，
+    // 之前那个 56dp 的「M」圆点在深色模式下几乎看不见。
     Box(
-      modifier = Modifier.size(56.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
+      modifier =
+        Modifier.size(ZoneuSize.hero)
+          .clip(MaterialTheme.zoneuShapes.hero)
+          .background(MaterialTheme.colorScheme.primaryContainer),
       contentAlignment = Alignment.Center,
     ) {
-      Text(text = "M", style = MaterialTheme.typography.titleLargeEmphasized, color = MaterialTheme.colorScheme.onPrimary)
+      Glyph(
+        kind = GlyphKind.Sparkles,
+        modifier = Modifier.size(ZoneuSize.iconLarge),
+        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+      )
     }
     Text(
       text = if (characterName != null) characterName else "你好，我是 zoneu",
-      style = MaterialTheme.typography.titleMediumEmphasized,
-      modifier = Modifier.padding(top = 18.dp),
+      style = MaterialTheme.typography.headlineMediumEmphasized,
+      textAlign = TextAlign.Center,
+      modifier = Modifier.padding(top = ZoneuSpacing.xl),
     )
     Text(
       // 酒馆里不该出现「说出要手机做什么」：那是干活用的开场，跟扮演是两件事。
@@ -1937,34 +2018,53 @@ private fun EmptyHint(
         } else {
           "说出要手机做什么，例如「打开设置看看电池电量」。\n任务会实时操作手机界面，工具调用会逐张出现。"
         },
-      style = MaterialTheme.typography.bodySmall,
+      style = MaterialTheme.typography.bodyMedium,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
       textAlign = TextAlign.Center,
-      modifier = Modifier.padding(top = 8.dp),
+      modifier = Modifier.padding(top = ZoneuSpacing.sm),
     )
-    if (greetings.isNotEmpty()) {
-      Text(
-        text = if (greetings.size == 1) "或者从她写的开场白开始" else "选一条开场白开始（共 ${greetings.size} 条）",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 22.dp, bottom = 10.dp),
-      )
-      greetings.forEachIndexed { index, text ->
-        Text(
-          text = text.trim().lines().take(3).joinToString("\n"),
-          style = MaterialTheme.typography.bodyMedium,
-          maxLines = 3,
-          overflow = TextOverflow.Ellipsis,
-          modifier =
-            Modifier.fillMaxWidth()
-              .padding(horizontal = 8.dp, vertical = 4.dp)
-              .clip(RoundedCornerShape(14.dp))
-              .clickable { onPickGreeting(text) }
-              .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-              .padding(14.dp),
-        )
+    if (characterName == null) {
+      val suggestions = listOf("打开设置看看电池电量", "帮我设一个明早 8 点的闹钟", "看看今天的日程")
+      FlowRow(
+        modifier = Modifier.padding(top = ZoneuSpacing.xl),
+        horizontalArrangement = Arrangement.spacedBy(ZoneuSpacing.sm),
+        verticalArrangement = Arrangement.spacedBy(ZoneuSpacing.sm),
+      ) {
+        suggestions.forEach { suggestion ->
+          AssistChip(
+            onClick = { onUseSuggestion(suggestion) },
+            label = { Text(text = suggestion, style = MaterialTheme.typography.labelMedium) },
+          )
+        }
       }
     }
+    GreetingPicker(greetings = greetings, onPickGreeting = onPickGreeting)
+  }
+}
+
+@Composable
+private fun GreetingPicker(greetings: List<String>, onPickGreeting: (String) -> Unit) {
+  if (greetings.isEmpty()) return
+  Text(
+    text = if (greetings.size == 1) "或者从她写的开场白开始" else "选一条开场白开始（共 ${greetings.size} 条）",
+    style = MaterialTheme.typography.labelMedium,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    modifier = Modifier.padding(top = ZoneuSpacing.xl, bottom = ZoneuSpacing.sm),
+  )
+  greetings.forEach { text ->
+    Text(
+      text = text.trim().lines().take(3).joinToString("\n"),
+      style = MaterialTheme.typography.bodyMedium,
+      maxLines = 3,
+      overflow = TextOverflow.Ellipsis,
+      modifier =
+        Modifier.fillMaxWidth()
+          .padding(horizontal = ZoneuSpacing.sm, vertical = ZoneuSpacing.xs)
+          .clip(MaterialTheme.zoneuShapes.card)
+          .clickable { onPickGreeting(text) }
+          .background(MaterialTheme.colorScheme.surfaceContainerLow)
+          .padding(ZoneuSpacing.lg),
+    )
   }
 }
 
@@ -2015,8 +2115,9 @@ private fun VariantStepper(index: Int, total: Int, onStep: (Int) -> Unit) {
 private fun UserBubble(content: String) {
   Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
     Surface(
-      color = MaterialTheme.colorScheme.secondaryContainer,
-      shape = RoundedCornerShape(22.dp),
+      color = MaterialTheme.zoneuColors.userBubble,
+      contentColor = MaterialTheme.zoneuColors.onUserBubble,
+      shape = MaterialTheme.zoneuShapes.userBubble,
       modifier =
         Modifier.widthIn(max = USER_BUBBLE_MAX_WIDTH)
           // 读屏要能听出这句是「你说的」，不然整段对话只剩一个声音。
@@ -2027,8 +2128,8 @@ private fun UserBubble(content: String) {
         Text(
           text = content,
           style = MaterialTheme.typography.bodyLarge,
-          color = MaterialTheme.colorScheme.onSecondaryContainer,
-          modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+          color = MaterialTheme.zoneuColors.onUserBubble,
+          modifier = Modifier.padding(horizontal = ZoneuSpacing.lg, vertical = 10.dp),
         )
       }
     }
@@ -2052,21 +2153,32 @@ private fun AssistantMessage(
   onOpenCharacterDetail: (String) -> Unit = {},
 ) {
   var confirming by remember(message.id) { mutableStateOf<ConfirmingTurn?>(null) }
-  Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-    // 过程（工具 + 思考）收进一个可折叠块；正文永远在块外面。
-    ProcessBlock(message)
-    CharacterCardResultActions(message.toolCalls, onOpenCharacterDetail)
-    WorldBookResultActions(message.toolCalls)
-    AssistantBody(message)
-    if ((message.content.isNotBlank() || message.error != null) && !message.streaming) {
-      AssistantActions(
-        message = message,
-        speaking = speaking,
-        tail = tail,
-        actions = actions,
-        canContinue = canContinue,
-        onConfirm = { confirming = it },
-      )
+  // 助手消息也有一块「属于它」的表面：之前正文直接铺在页面底色上，长对话里几轮
+  // 回答连成一片，用户分不清边界。工具卡与正文共用同一个容器，层级由内层再分。
+  Surface(
+    modifier = Modifier.fillMaxWidth(),
+    shape = MaterialTheme.zoneuShapes.assistantBubble,
+    color = MaterialTheme.colorScheme.surfaceContainerLow,
+  ) {
+    Column(
+      modifier = Modifier.padding(ZoneuSpacing.lg),
+      verticalArrangement = Arrangement.spacedBy(ZoneuSpacing.md),
+    ) {
+      // 过程（工具 + 思考）收进一个可折叠块；正文永远在块外面。
+      ProcessBlock(message)
+      CharacterCardResultActions(message.toolCalls, onOpenCharacterDetail)
+      WorldBookResultActions(message.toolCalls)
+      AssistantBody(message)
+      if ((message.content.isNotBlank() || message.error != null) && !message.streaming) {
+        AssistantActions(
+          message = message,
+          speaking = speaking,
+          tail = tail,
+          actions = actions,
+          canContinue = canContinue,
+          onConfirm = { confirming = it },
+        )
+      }
     }
   }
   confirming?.let { pending ->
@@ -2340,18 +2452,19 @@ private fun ChatInputBar(
   ) {
     Surface(
       modifier = Modifier.widthIn(max = CHAT_CONTENT_MAX_WIDTH).fillMaxWidth(),
-      color = MaterialTheme.colorScheme.surface,
-      shape = RoundedCornerShape(26.dp),
-      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-      shadowElevation = 4.dp,
+      color = MaterialTheme.colorScheme.surfaceContainerHigh,
+      shape = MaterialTheme.zoneuShapes.composer,
+      border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+      shadowElevation = 3.dp,
     ) {
       Column(
-        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 4.dp),
+        modifier =
+          Modifier.fillMaxWidth().padding(start = ZoneuSpacing.lg, end = ZoneuSpacing.sm, top = ZoneuSpacing.xs, bottom = ZoneuSpacing.xs),
       ) {
         BasicTextField(
           value = value,
           onValueChange = onValueChange,
-          modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp),
+          modifier = Modifier.fillMaxWidth().padding(top = ZoneuSpacing.sm, bottom = ZoneuSpacing.xs).testTag("chat_input"),
           textStyle = textStyle.copy(color = MaterialTheme.colorScheme.onSurface),
           cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
           maxLines = 5,
@@ -2377,7 +2490,8 @@ private fun ChatInputBar(
                 Modifier.size(48.dp)
                   .clip(CircleShape)
                   .clickable(enabled = !isStreaming, onClick = onModelSwitchClick)
-                  .semantics { contentDescription = "切换模型" },
+                  .semantics { contentDescription = "切换模型" }
+                  .testTag("chat_model"),
               contentAlignment = Alignment.Center,
             ) {
               ProviderModelIcon(
@@ -2524,22 +2638,29 @@ private fun SendStopButton(
   Box(
     modifier =
       modifier
-        .size(48.dp)
+        .size(ZoneuSize.touchTarget)
         .clip(CircleShape)
         .clickable(enabled = enabled, role = Role.Button, onClickLabel = label) {
           if (isStreaming) onStop() else onSend()
         }
-        .semantics { contentDescription = label },
+        .semantics { contentDescription = label }
+        .testTag("chat_send"),
     contentAlignment = Alignment.Center,
   ) {
     Box(
       modifier = Modifier.size(40.dp).clip(CircleShape).background(background),
       contentAlignment = Alignment.Center,
     ) {
-      if (isStreaming) {
-        StopGlyph(tint = tint)
-      } else {
-        ArrowUpGlyph(tint = tint)
+      AnimatedContent(
+        targetState = isStreaming,
+        transitionSpec = { fadeIn(tween(140)) togetherWith fadeOut(tween(100)) },
+        label = "send-stop",
+      ) { streaming ->
+        if (streaming) {
+          StopGlyph(tint = tint)
+        } else {
+          ArrowUpGlyph(tint = tint)
+        }
       }
     }
   }
@@ -2630,7 +2751,10 @@ private fun ModelSwitchSheet(
     }
   }
 
-  ModalBottomSheet(onDismissRequest = onDismiss) {
+  ModalBottomSheet(
+    onDismissRequest = onDismiss,
+    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+  ) {
     Column(Modifier.fillMaxWidth().fillMaxHeight(0.85f).imePadding()) {
       ModelSearchField(query = query, onQueryChange = { query = it })
       Text(

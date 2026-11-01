@@ -18,7 +18,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.zoneu.app.agent.ApprovalDecision
 import com.zoneu.app.agent.ApprovalHub
@@ -41,7 +40,11 @@ fun ApprovalSheet(pending: PendingApproval) {
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   val detail = pending.displayReason["zh"] ?: pending.displayReason["en"] ?: pending.reason
 
-  ModalBottomSheet(onDismissRequest = { ApprovalHub.dismiss() }, sheetState = sheetState) {
+  ModalBottomSheet(
+    onDismissRequest = { ApprovalHub.dismiss() },
+    sheetState = sheetState,
+    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+  ) {
     Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 24.dp)) {
       Text(
         "需要你确认",
@@ -52,7 +55,7 @@ fun ApprovalSheet(pending: PendingApproval) {
       // 工具名原样显示：用户要能看出「批准的是什么」，映射成中文反倒藏掉了信息。
       Text(
         "工具「${pending.toolName}」想执行一次操作",
-        style = MaterialTheme.typography.titleMediumEmphasized.copy(fontWeight = FontWeight.SemiBold),
+        style = MaterialTheme.typography.headlineSmallEmphasized,
       )
       detail?.takeIf { it.isNotBlank() }?.let {
         Spacer(Modifier.height(8.dp))

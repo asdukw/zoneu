@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -29,6 +28,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -47,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -62,6 +63,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zoneu.app.agent.LlmPreset
 import com.zoneu.app.agent.ModelModalities
+import com.zoneu.app.ui.components.zoneuPageInsets
 
 /**
  * 提供商详情（参考图的第三屏）：配置 / 模型 / 高级设置三个页签。
@@ -135,7 +137,7 @@ internal fun ProviderDetailScreen(
   modifier: Modifier = Modifier,
 ) {
   Surface(modifier = modifier.fillMaxSize(), color = settingsPageColor()) {
-    Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
+    Column(Modifier.fillMaxSize().zoneuPageInsets().imePadding()) {
       ProviderDetailHeader(state = state, onBack = onBack)
       Column(
         modifier =
@@ -186,36 +188,46 @@ internal fun ProviderDetailScreen(
   }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun ProviderDetailHeader(state: ProviderDetailViewModel.UiState, onBack: () -> Unit) {
-  Row(
-    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
-    BackCircle(onBack)
-    Spacer(Modifier.width(12.dp))
-    ProviderAvatar(preset = state.preset, name = state.name, size = 34)
-    Spacer(Modifier.width(10.dp))
-    Column(Modifier.weight(1f)) {
-      Text(
-        text = state.name,
-        style = MaterialTheme.typography.titleLargeEmphasized,
-        fontWeight = FontWeight.SemiBold,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-      )
-      Text(
-        text = if (state.enabled) "已启用" else "未启用",
-        style = MaterialTheme.typography.labelSmall,
-        color =
-          if (state.enabled) {
-            MaterialTheme.colorScheme.primary
-          } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-          },
-      )
-    }
-  }
+  androidx.compose.material3.TopAppBar(
+    title = {
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        ProviderAvatar(preset = state.preset, name = state.name, size = 34)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+          Text(
+            text = state.name,
+            style = MaterialTheme.typography.titleLargeEmphasized,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+          )
+          Text(
+            text = if (state.enabled) "已启用" else "未启用",
+            style = MaterialTheme.typography.labelSmall,
+            color =
+              if (state.enabled) {
+                MaterialTheme.colorScheme.primary
+              } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+              },
+          )
+        }
+      }
+    },
+    navigationIcon = {
+      IconButton(onClick = onBack) {
+        Glyph(kind = GlyphKind.Back, modifier = Modifier.size(22.dp))
+      }
+    },
+    colors =
+      androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+        containerColor = Color.Transparent,
+        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+      ),
+    windowInsets = androidx.compose.foundation.layout.WindowInsets(0),
+  )
 }
 
 @Composable

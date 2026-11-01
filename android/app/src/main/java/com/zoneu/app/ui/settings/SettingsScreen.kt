@@ -1,15 +1,16 @@
 package com.zoneu.app.ui.settings
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,6 +28,9 @@ import com.zoneu.app.agent.ApprovalPolicy
 import com.zoneu.app.agent.ApprovalSettings
 import com.zoneu.app.agent.appVersionName
 import com.zoneu.app.device.AccessibilityStatus
+import com.zoneu.app.theme.ZoneuSize
+import com.zoneu.app.theme.ZoneuSpacing
+import com.zoneu.app.ui.components.zoneuPageInsets
 
 /**
  * 设置首页：**只放分组入口**，具体项在各自的分页里 ——
@@ -42,7 +46,6 @@ import com.zoneu.app.device.AccessibilityStatus
  */
 @Composable
 fun SettingsScreen(
-  onBack: () -> Unit,
   onOpenModelServices: () -> Unit,
   onOpenExecution: () -> Unit,
   onOpenConnectors: () -> Unit,
@@ -64,7 +67,6 @@ fun SettingsScreen(
 
   SettingsScreen(
     state = state,
-    onBack = onBack,
     onOpenModelServices = onOpenModelServices,
     onOpenExecution = onOpenExecution,
     onOpenConnectors = onOpenConnectors,
@@ -79,7 +81,6 @@ fun SettingsScreen(
 @Composable
 internal fun SettingsScreen(
   state: SettingsViewModel.UiState,
-  onBack: () -> Unit,
   onOpenModelServices: () -> Unit,
   onOpenExecution: () -> Unit,
   onOpenConnectors: () -> Unit,
@@ -103,71 +104,150 @@ internal fun SettingsScreen(
   }
 
   Surface(modifier = modifier.fillMaxSize(), color = settingsPageColor()) {
-    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-      SettingsHeader(title = "设置", onBack = onBack)
-      // 大屏上把设置列限宽居中：一整行横跨 1000dp 的条目读起来很费劲。
-      // weight(1f) 而不是 fillMaxSize：后者在 Column 里会按整页高度量，底部被顶出屏幕。
-      Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-        Column(
-          modifier =
-            Modifier.widthIn(max = 840.dp)
-              .fillMaxSize()
-              .verticalScroll(rememberScrollState())
-              .padding(horizontal = 16.dp)
-              .padding(bottom = 24.dp),
-        ) {
-          SettingsGroup {
-            SettingsRow(
-              glyph = GlyphKind.Sparkles,
-              title = "AI 模型",
-              subtitle = providerSubtitle(state),
-              onClick = onOpenModelServices,
-            ) {
-              ChevronRight()
-            }
-            SettingsDivider()
-            SettingsRow(
-              glyph = GlyphKind.Accessibility,
-              title = "手机操作",
-              subtitle = executionSubtitle(accessibilityEnabled, allowAllWrites),
-              onClick = onOpenExecution,
-            ) {
-              ChevronRight()
-            }
-            SettingsDivider()
-            SettingsRow(
-              glyph = GlyphKind.Mail,
-              title = "邮箱与数据",
-              subtitle = connectorSubtitle(state),
-              onClick = onOpenConnectors,
-            ) {
-              ChevronRight()
-            }
-            SettingsDivider()
-            SettingsRow(
-              glyph = GlyphKind.Speaker,
-              title = "语音",
-              subtitle = if (state.voiceAutoRead) "回复完自动朗读" else "点回复下方的喇叭朗读",
-              onClick = onOpenVoice,
-            ) {
-              ChevronRight()
-            }
-          }
-          ScheduledTasksSection(onOpenScheduledTasks)
-          EntertainmentSection(onOpenCharacters)
-          SectionLabel("关于")
-          SettingsGroup {
-            SettingsRow(
-              glyph = GlyphKind.Info,
-              title = "关于",
-              subtitle = "zoneu ${appVersionName()}",
-              onClick = onOpenAbout,
-            ) {
-              ChevronRight()
-            }
-          }
-        }
-      }
+    Box(Modifier.fillMaxSize().zoneuPageInsets(), contentAlignment = Alignment.TopCenter) {
+      SettingsList(
+        state = state,
+        accessibilityEnabled = accessibilityEnabled,
+        allowAllWrites = allowAllWrites,
+        onOpenModelServices = onOpenModelServices,
+        onOpenExecution = onOpenExecution,
+        onOpenConnectors = onOpenConnectors,
+        onOpenVoice = onOpenVoice,
+        onOpenScheduledTasks = onOpenScheduledTasks,
+        onOpenCharacters = onOpenCharacters,
+        onOpenAbout = onOpenAbout,
+      )
+    }
+  }
+}
+
+/**
+ * 大标题随内容滚走，而不是钉在顶栏里：设置首页的信息密度低，
+ * 一进来看到的应该是分组，而不是一条 64dp 的空标题栏。
+ */
+@Composable
+private fun SettingsList(
+  state: SettingsViewModel.UiState,
+  accessibilityEnabled: Boolean,
+  allowAllWrites: Boolean,
+  onOpenModelServices: () -> Unit,
+  onOpenExecution: () -> Unit,
+  onOpenConnectors: () -> Unit,
+  onOpenVoice: () -> Unit,
+  onOpenScheduledTasks: () -> Unit,
+  onOpenCharacters: () -> Unit,
+  onOpenAbout: () -> Unit,
+) {
+  LazyColumn(
+    modifier = Modifier.widthIn(max = ZoneuSize.settingsMaxWidth).fillMaxSize(),
+    contentPadding =
+      PaddingValues(
+        start = ZoneuSpacing.lg,
+        end = ZoneuSpacing.lg,
+        top = ZoneuSpacing.md,
+        bottom = ZoneuSpacing.xl,
+      ),
+    verticalArrangement = Arrangement.spacedBy(ZoneuSpacing.xs),
+  ) {
+    item {
+      Text(
+        text = "设置",
+        style = MaterialTheme.typography.headlineLargeEmphasized,
+        modifier = Modifier.padding(start = ZoneuSpacing.xs, top = ZoneuSpacing.sm, bottom = ZoneuSpacing.lg),
+      )
+    }
+    item {
+      MainSettingsGroup(
+        state = state,
+        accessibilityEnabled = accessibilityEnabled,
+        allowAllWrites = allowAllWrites,
+        onOpenModelServices = onOpenModelServices,
+        onOpenExecution = onOpenExecution,
+        onOpenConnectors = onOpenConnectors,
+        onOpenVoice = onOpenVoice,
+      )
+    }
+    item { AutomationSettingsGroup(onOpenScheduledTasks) }
+    item { EntertainmentSection(onOpenCharacters) }
+    item { AboutSettingsGroup(onOpenAbout) }
+  }
+}
+
+@Composable
+private fun MainSettingsGroup(
+  state: SettingsViewModel.UiState,
+  accessibilityEnabled: Boolean,
+  allowAllWrites: Boolean,
+  onOpenModelServices: () -> Unit,
+  onOpenExecution: () -> Unit,
+  onOpenConnectors: () -> Unit,
+  onOpenVoice: () -> Unit,
+) {
+  SettingsGroup {
+    SettingsRow(
+      glyph = GlyphKind.Sparkles,
+      title = "AI 模型",
+      subtitle = providerSubtitle(state),
+      onClick = onOpenModelServices,
+    ) {
+      ChevronRight()
+    }
+    SettingsDivider()
+    SettingsRow(
+      glyph = GlyphKind.Accessibility,
+      title = "手机操作",
+      subtitle = executionSubtitle(accessibilityEnabled, allowAllWrites),
+      onClick = onOpenExecution,
+    ) {
+      ChevronRight()
+    }
+    SettingsDivider()
+    SettingsRow(
+      glyph = GlyphKind.Mail,
+      title = "邮箱与数据",
+      subtitle = connectorSubtitle(state),
+      onClick = onOpenConnectors,
+    ) {
+      ChevronRight()
+    }
+    SettingsDivider()
+    SettingsRow(
+      glyph = GlyphKind.Speaker,
+      title = "语音",
+      subtitle = if (state.voiceAutoRead) "回复完自动朗读" else "点回复下方的喇叭朗读",
+      onClick = onOpenVoice,
+    ) {
+      ChevronRight()
+    }
+  }
+}
+
+@Composable
+private fun AutomationSettingsGroup(onOpen: () -> Unit) {
+  SectionLabel("自动化")
+  SettingsGroup {
+    SettingsRow(
+      glyph = GlyphKind.Clock,
+      title = "定时任务",
+      subtitle = "查看排期、下次触发时间与上次结果",
+      onClick = onOpen,
+    ) {
+      ChevronRight()
+    }
+  }
+}
+
+@Composable
+private fun AboutSettingsGroup(onOpen: () -> Unit) {
+  SectionLabel("关于")
+  SettingsGroup {
+    SettingsRow(
+      glyph = GlyphKind.Info,
+      title = "关于",
+      subtitle = "zoneu ${appVersionName()}",
+      onClick = onOpen,
+    ) {
+      ChevronRight()
     }
   }
 }
@@ -185,19 +265,3 @@ private fun connectorSubtitle(state: SettingsViewModel.UiState): String =
     state.gmailConnected -> "已连接 Gmail"
     else -> "连接邮箱，让 zoneu 帮你读取邮件"
   }
-
-/** 定时任务入口。任务由对话创建和修改，设置首页只负责导航（`docs/scheduled-tasks.md`）。 */
-@Composable
-private fun ScheduledTasksSection(onOpen: () -> Unit) {
-  SectionLabel("自动化")
-  SettingsGroup {
-    SettingsRow(
-      glyph = GlyphKind.Clock,
-      title = "定时任务",
-      subtitle = "查看排期、下次触发时间与上次结果",
-      onClick = onOpen,
-    ) {
-      ChevronRight()
-    }
-  }
-}

@@ -27,6 +27,8 @@ import kotlin.math.sin
  */
 internal enum class GlyphKind {
   Back,
+  Chat,
+  Book,
   Search,
   More,
   Check,
@@ -69,6 +71,7 @@ private const val LINE_WIDTH = 1.8f
 private fun DrawScope.drawGlyph(kind: GlyphKind, tint: Color, u: Float) {
   when (kind) {
     GlyphKind.Back,
+    GlyphKind.Chat,
     GlyphKind.Search,
     GlyphKind.More,
     GlyphKind.Check,
@@ -80,6 +83,7 @@ private fun DrawScope.drawGlyph(kind: GlyphKind, tint: Color, u: Float) {
     -> drawHumanGlyph(kind, tint, u)
 
     GlyphKind.Box,
+    GlyphKind.Book,
     GlyphKind.Sparkles,
     -> drawShapeGlyph(kind, tint, u)
 
@@ -131,6 +135,25 @@ private fun DrawScope.drawBasicGlyph(kind: GlyphKind, tint: Color, u: Float) {
       line(tint, u, 5f, 12f, 19f, 12f)
     }
 
+    // 对话：圆角气泡 + 左下角一小段尾巴。底部导航的「对话」页签用它。
+    GlyphKind.Chat -> {
+      strokePath(tint, u) {
+        moveTo(5f * u, 5f * u)
+        lineTo(19f * u, 5f * u)
+        quadraticTo(21f * u, 5f * u, 21f * u, 7f * u)
+        lineTo(21f * u, 14f * u)
+        quadraticTo(21f * u, 16f * u, 19f * u, 16f * u)
+        lineTo(11f * u, 16f * u)
+        lineTo(7f * u, 20f * u)
+        lineTo(7f * u, 16f * u)
+        lineTo(5f * u, 16f * u)
+        quadraticTo(3f * u, 16f * u, 3f * u, 14f * u)
+        lineTo(3f * u, 7f * u)
+        quadraticTo(3f * u, 5f * u, 5f * u, 5f * u)
+        close()
+      }
+    }
+
     else -> Unit
   }
 }
@@ -174,6 +197,22 @@ private fun DrawScope.drawShapeGlyph(kind: GlyphKind, tint: Color, u: Float) {
         lineTo(20f * u, 7.5f * u)
         moveTo(12f * u, 12f * u)
         lineTo(12f * u, 21f * u)
+      }
+    }
+
+    // 世界书：摊开的书脊 + 两页。底部导航的「世界书」页签用它。
+    GlyphKind.Book -> {
+      strokePath(tint, u) {
+        moveTo(12f * u, 6.5f * u)
+        quadraticTo(9f * u, 4f * u, 4f * u, 4.5f * u)
+        lineTo(4f * u, 18.5f * u)
+        quadraticTo(9f * u, 18f * u, 12f * u, 20f * u)
+        quadraticTo(15f * u, 18f * u, 20f * u, 18.5f * u)
+        lineTo(20f * u, 4.5f * u)
+        quadraticTo(15f * u, 4f * u, 12f * u, 6.5f * u)
+        close()
+        moveTo(12f * u, 6.5f * u)
+        lineTo(12f * u, 20f * u)
       }
     }
 

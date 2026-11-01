@@ -1,8 +1,6 @@
 package com.zoneu.app.ui.chat
 
 import android.widget.Toast
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -13,6 +11,7 @@ import com.zoneu.app.agent.ToolCallState
 import com.zoneu.app.agent.ToolCallView
 import com.zoneu.app.agent.WorldBook
 import com.zoneu.app.agent.worldBookRepository
+import com.zoneu.app.ui.settings.GlyphKind
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -47,14 +46,18 @@ internal fun WorldBookResultActions(calls: List<ToolCallView>) {
     val book by produceState<WorldBook?>(null, id, calls) {
       value = runCatching { context.worldBookRepository().read(id) }.getOrNull()
     }
-    TextButton(onClick = {
-      scope.launch {
-        if (runCatching { context.worldBookRepository().read(id) }.isSuccess) {
-          navigation.openBook(id)
-        } else {
-          Toast.makeText(context, "世界书已删除、不存在或暂时无法读取", Toast.LENGTH_SHORT).show()
+    ChatResultAction(
+      label = book?.let { "查看世界书 · ${it.name}" } ?: "查看世界书（已删除或不存在）",
+      glyph = GlyphKind.Book,
+      onClick = {
+        scope.launch {
+          if (runCatching { context.worldBookRepository().read(id) }.isSuccess) {
+            navigation.openBook(id)
+          } else {
+            Toast.makeText(context, "世界书已删除、不存在或暂时无法读取", Toast.LENGTH_SHORT).show()
+          }
         }
-      }
-    }) { Text(book?.let { "查看世界书 · ${it.name}" } ?: "查看世界书（已删除或不存在）") }
+      },
+    )
   }
 }

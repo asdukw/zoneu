@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -45,6 +44,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zoneu.app.agent.LlmPreset
 import com.zoneu.app.agent.ProviderSettings
+import com.zoneu.app.ui.components.zoneuPageInsets
 
 /**
  * 提供商列表（参考图的第二屏）：搜索框 + 卡片列表 + 三点菜单。
@@ -94,10 +94,8 @@ internal fun ProvidersScreen(
 ) {
   Surface(modifier = modifier.fillMaxSize(), color = settingsPageColor()) {
     Box(Modifier.fillMaxSize()) {
-      Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp)) {
-          BackCircle(onBack)
-        }
+      Column(Modifier.fillMaxSize().zoneuPageInsets()) {
+        SettingsHeader(title = "提供商", onBack = onBack)
         Column(
           modifier =
             Modifier.fillMaxSize()
@@ -105,9 +103,11 @@ internal fun ProvidersScreen(
               .padding(horizontal = 16.dp)
               .padding(bottom = 24.dp),
         ) {
-          BigTitle(
-            title = "提供商",
-            subtitle = "配置 AI 提供商：端点、密钥、要用的模型。",
+          Text(
+            text = "配置 AI 提供商：端点、密钥、要用的模型。",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp, bottom = 12.dp),
           )
           OutlinedTextField(
             value = state.query,

@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -39,6 +38,7 @@ import com.zoneu.app.agent.WorldBookFormat
 import com.zoneu.app.agent.WorldBookRepository
 import com.zoneu.app.agent.worldBookRepository
 import com.zoneu.app.ui.components.AppBanner
+import com.zoneu.app.ui.components.zoneuPageInsets
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -75,7 +75,7 @@ fun WorldBookScreen(onBack: () -> Unit, initialBookId: String? = null) {
 @Composable
 internal fun WorldPage(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
   Surface(Modifier.fillMaxSize(), color = settingsPageColor()) {
-    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+    Column(Modifier.fillMaxSize().zoneuPageInsets()) {
       SettingsHeader(title, onBack)
       Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),

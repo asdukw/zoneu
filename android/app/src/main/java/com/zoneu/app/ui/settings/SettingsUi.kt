@@ -8,62 +8,79 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.zoneu.app.agent.LlmPreset
 import com.zoneu.app.theme.LocalZoneuDarkTheme
+import com.zoneu.app.theme.ZoneuSize
+import com.zoneu.app.theme.ZoneuSpacing
+import com.zoneu.app.theme.zoneuColors
+import com.zoneu.app.theme.zoneuShapes
 import com.zoneu.app.ui.components.AppBanner
 import com.zoneu.app.ui.components.ProviderModelIcon
 
-/**
+/*
  * 设置页共用的小部件：分组卡片、行、状态徽章、提供商头像、顶栏、底部页签。
  *
  * 视觉对齐参考图：浅灰页面 + 白色圆角分组卡片 + 线稿图标 + 语义色徽章。
  * 颜色不用 Material You 动态取色（全局主题已经这么定了），保证品牌色不漂移。
  */
+
+/**
+ * 设置页与聊天页共用同一个页面底色。
+ *
+ * 之前设置页刷 surfaceContainer、聊天页用 background，Nav3 交叉淡入时整屏会闪一下；
+ * 分组卡片靠「比页面白一档/深一档」拉开层次，而不是靠改整页底色。
+ */
 @Composable
-internal fun settingsPageColor(): Color =
-  if (LocalZoneuDarkTheme.current) {
-    MaterialTheme.colorScheme.background
-  } else {
-    MaterialTheme.colorScheme.surfaceContainer
-  }
+internal fun settingsPageColor(): Color = MaterialTheme.colorScheme.background
 
 @Composable
 internal fun settingsCardColor(): Color =
   if (LocalZoneuDarkTheme.current) {
     MaterialTheme.colorScheme.surfaceContainer
   } else {
-    MaterialTheme.colorScheme.surface
+    MaterialTheme.colorScheme.surfaceContainerLowest
   }
 
 @Composable
 internal fun SectionLabel(text: String) {
   Text(
     text = text,
-    style = MaterialTheme.typography.labelLarge,
-    color = MaterialTheme.colorScheme.onSurfaceVariant,
-    modifier = Modifier.padding(start = 8.dp, top = 22.dp, bottom = 8.dp),
+    style = MaterialTheme.typography.labelLargeEmphasized,
+    color = MaterialTheme.colorScheme.primary,
+    modifier = Modifier.padding(start = ZoneuSpacing.sm, top = ZoneuSpacing.xl, bottom = ZoneuSpacing.sm),
   )
 }
 
@@ -71,8 +88,10 @@ internal fun SectionLabel(text: String) {
 internal fun SettingsGroup(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
   Surface(
     modifier = modifier.fillMaxWidth(),
-    shape = MaterialTheme.shapes.large,
+    shape = MaterialTheme.zoneuShapes.card,
     color = settingsCardColor(),
+    tonalElevation = 0.dp,
+    shadowElevation = 0.dp,
   ) {
     Column { content() }
   }
@@ -101,21 +120,13 @@ internal fun SettingsRow(
   trailing: @Composable RowScope.() -> Unit = {},
 ) {
   val clickable = onClick != null && enabled
-  Row(
+  ListItem(
     modifier =
       modifier
         .fillMaxWidth()
-        .then(if (clickable) Modifier.clickable(onClick = onClick) else Modifier)
-        .padding(horizontal = 16.dp, vertical = 13.dp),
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
-    Glyph(
-      kind = glyph,
-      modifier = Modifier.size(24.dp),
-      tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.45f),
-    )
-    Spacer(Modifier.width(16.dp))
-    Column(Modifier.weight(1f)) {
+        .heightIn(min = ZoneuSize.rowMinHeight)
+        .then(if (clickable) Modifier.clickable(onClick = onClick) else Modifier),
+    headlineContent = {
       Text(
         text = title,
         style = MaterialTheme.typography.bodyLarge,
@@ -126,7 +137,8 @@ internal fun SettingsRow(
             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
           },
       )
-      Spacer(Modifier.height(2.dp))
+    },
+    supportingContent = {
       Text(
         text = subtitle,
         style = MaterialTheme.typography.bodySmall,
@@ -134,10 +146,32 @@ internal fun SettingsRow(
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
       )
-    }
-    Spacer(Modifier.width(12.dp))
-    trailing()
-  }
+    },
+    leadingContent = {
+      Box(
+        modifier =
+          Modifier.size(40.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+        contentAlignment = Alignment.Center,
+      ) {
+        Glyph(
+          kind = glyph,
+          modifier = Modifier.size(22.dp),
+          tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.45f),
+        )
+      }
+    },
+    trailingContent = { Row(verticalAlignment = Alignment.CenterVertically) { trailing() } },
+    colors =
+      ListItemDefaults.colors(
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        leadingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        supportingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        trailingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+      ),
+  )
 }
 
 @Composable
@@ -159,20 +193,14 @@ internal enum class BadgeTone {
 /** 语义色徽章：绿=启用、琥珀=禁用、蓝=数量/信息、灰=未支持。深浅色各一套，保证对比度。 */
 @Composable
 internal fun StatusBadge(text: String, tone: BadgeTone, modifier: Modifier = Modifier) {
-  val dark = LocalZoneuDarkTheme.current
+  val scheme = MaterialTheme.colorScheme
+  val semantic = MaterialTheme.zoneuColors
   val (background, foreground) =
     when (tone) {
-      BadgeTone.Enabled ->
-        if (dark) Color(0xFF1B3A2A) to Color(0xFF86E0AC) else Color(0xFFDDF3E4) to Color(0xFF176B3A)
-
-      BadgeTone.Disabled ->
-        if (dark) Color(0xFF3B2F1A) to Color(0xFFF2C77E) else Color(0xFFFCEFD9) to Color(0xFF8A5A12)
-
-      BadgeTone.Info ->
-        if (dark) Color(0xFF1C2B42) to Color(0xFFA6C8FF) else Color(0xFFDDEBFF) to Color(0xFF1D4F91)
-
-      BadgeTone.Muted ->
-        if (dark) Color(0xFF262932) to Color(0xFF9BA1AC) else Color(0xFFECEEF2) to Color(0xFF5C6470)
+      BadgeTone.Enabled -> semantic.successContainer to semantic.onSuccessContainer
+      BadgeTone.Disabled -> semantic.warningContainer to semantic.onWarningContainer
+      BadgeTone.Info -> scheme.secondaryContainer to scheme.onSecondaryContainer
+      BadgeTone.Muted -> scheme.surfaceContainerHigh to scheme.onSurfaceVariant
     }
   Text(
     text = text,
@@ -180,9 +208,9 @@ internal fun StatusBadge(text: String, tone: BadgeTone, modifier: Modifier = Mod
     color = foreground,
     modifier =
       modifier
-        .clip(RoundedCornerShape(50))
+        .clip(MaterialTheme.zoneuShapes.pill)
         .background(background)
-        .padding(horizontal = 8.dp, vertical = 3.dp),
+        .padding(horizontal = ZoneuSpacing.sm, vertical = 3.dp),
   )
 }
 
@@ -208,10 +236,9 @@ internal fun BackCircle(onClick: () -> Unit, modifier: Modifier = Modifier) {
   Box(
     modifier =
       modifier
-        .size(48.dp)
-        .shadow(1.dp, CircleShape)
+        .size(ZoneuSize.touchTarget)
         .clip(CircleShape)
-        .background(settingsCardColor())
+        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
         .clickable(onClick = onClick)
         .semantics { contentDescription = "返回" },
     contentAlignment = Alignment.Center,
@@ -220,25 +247,38 @@ internal fun BackCircle(onClick: () -> Unit, modifier: Modifier = Modifier) {
   }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SettingsHeader(
   title: String,
   onBack: () -> Unit,
   actions: @Composable RowScope.() -> Unit = {},
 ) {
-  Row(
-    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
-    BackCircle(onBack)
-    Spacer(Modifier.width(16.dp))
-    Text(
-      text = title,
-      style = MaterialTheme.typography.headlineMediumEmphasized,
-      modifier = Modifier.weight(1f),
-    )
-    actions()
-  }
+  // 用真正的 TopAppBar，而不是自绘 Row：滚动色、标题排版和返回按钮的触控目标
+  // 都交给 M3；windowInsets 置零，因为页面根节点已经让过状态栏了。
+  TopAppBar(
+    modifier = Modifier.testTag("settings_top_bar"),
+    title = {
+      Text(
+        text = title,
+        style = MaterialTheme.typography.titleLargeEmphasized,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+      )
+    },
+    navigationIcon = {
+      IconButton(onClick = onBack) {
+        Glyph(kind = GlyphKind.Back, modifier = Modifier.size(ZoneuSize.icon))
+      }
+    },
+    actions = actions,
+    colors =
+      TopAppBarDefaults.topAppBarColors(
+        containerColor = Color.Transparent,
+        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+      ),
+    windowInsets = WindowInsets(0),
+  )
 }
 
 @Composable
@@ -276,54 +316,22 @@ internal enum class DetailTab(val label: String, val glyph: GlyphKind) {
 /** 底部页签条：选中的一项带一层淡色药丸底，与参考图一致。 */
 @Composable
 internal fun DetailTabBar(selected: DetailTab, onSelect: (DetailTab) -> Unit) {
-  Row(
-    modifier =
-      Modifier.fillMaxWidth()
-        .padding(horizontal = 16.dp, vertical = 8.dp)
-        .clip(RoundedCornerShape(24.dp))
-        .background(settingsCardColor())
-        .padding(6.dp),
-    horizontalArrangement = Arrangement.spacedBy(4.dp),
+  SingleChoiceSegmentedButtonRow(
+    modifier = Modifier.fillMaxWidth().padding(horizontal = ZoneuSpacing.lg, vertical = ZoneuSpacing.sm),
   ) {
-    DetailTab.entries.forEach { tab ->
-      val active = tab == selected
-      Column(
-        modifier =
-          Modifier.weight(1f)
-            .clip(RoundedCornerShape(18.dp))
-            .background(
-              if (active) {
-                MaterialTheme.colorScheme.primary.copy(alpha = if (LocalZoneuDarkTheme.current) 0.22f else 0.10f)
-              } else {
-                Color.Transparent
-              },
-            )
-            .clickable { onSelect(tab) }
-            .padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp),
-      ) {
-        Glyph(
-          kind = tab.glyph,
-          modifier = Modifier.size(21.dp),
-          tint =
-            if (active) {
-              MaterialTheme.colorScheme.primary
-            } else {
-              MaterialTheme.colorScheme.onSurfaceVariant
-            },
-        )
-        Text(
-          text = tab.label,
-          style = MaterialTheme.typography.labelSmall,
-          color =
-            if (active) {
-              MaterialTheme.colorScheme.primary
-            } else {
-              MaterialTheme.colorScheme.onSurfaceVariant
-            },
-        )
-      }
+    DetailTab.entries.forEachIndexed { index, tab ->
+      SegmentedButton(
+        selected = tab == selected,
+        onClick = { onSelect(tab) },
+        shape = SegmentedButtonDefaults.itemShape(index = index, count = DetailTab.entries.size),
+        icon = {
+          Glyph(
+            kind = tab.glyph,
+            modifier = Modifier.size(ZoneuSize.iconSmall),
+          )
+        },
+        label = { Text(text = tab.label, style = MaterialTheme.typography.labelMedium) },
+      )
     }
   }
 }

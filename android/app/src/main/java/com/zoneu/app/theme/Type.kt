@@ -10,11 +10,19 @@ import androidx.compose.ui.unit.sp
 // Material 默认的 tracking 是给拉丁字母调的，中文正文加上去只会字与字之间发虚。
 // Emphasized 变体按 M3 Expressive 的定义比标准字重重一档，两套必须一起给，
 // 否则同一个标题在不同页面会一个粗一个细。
+//
+// 30 个槽位全部显式赋值：只写一半时，没写的那些会落回 M3 默认的拉丁 tracking，
+// 大屏/横屏一旦用到 display* 就会和中文正文打架。
 private fun TextStyle.cjk(): TextStyle = copy(fontFamily = FontFamily.Default, letterSpacing = 0.sp)
 
 val Typography =
   Typography(
+    displayLarge = TextStyle(fontWeight = FontWeight.Normal, fontSize = 57.sp, lineHeight = 64.sp).cjk(),
+    displayLargeEmphasized = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 57.sp, lineHeight = 64.sp).cjk(),
+    displayMedium = TextStyle(fontWeight = FontWeight.Normal, fontSize = 45.sp, lineHeight = 52.sp).cjk(),
+    displayMediumEmphasized = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 45.sp, lineHeight = 52.sp).cjk(),
     displaySmall = TextStyle(fontWeight = FontWeight.Normal, fontSize = 36.sp, lineHeight = 44.sp).cjk(),
+    displaySmallEmphasized = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 36.sp, lineHeight = 44.sp).cjk(),
     headlineLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 28.sp, lineHeight = 36.sp).cjk(),
     headlineLargeEmphasized = TextStyle(fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 36.sp).cjk(),
     headlineMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 24.sp, lineHeight = 32.sp).cjk(),

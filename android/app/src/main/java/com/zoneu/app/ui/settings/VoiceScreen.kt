@@ -1,5 +1,6 @@
 package com.zoneu.app.ui.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.zoneu.app.ui.components.zoneuPageInsets
 import com.zoneu.app.voice.FishVoices
 import com.zoneu.app.voice.TtsVoice
 
@@ -96,7 +98,9 @@ internal fun VoiceScreen(
   var voiceSheetOpen by remember { mutableStateOf(false) }
   val sheetState = rememberModalBottomSheetState()
 
-  Column(modifier.fillMaxSize().safeDrawingPadding()) {
+  Column(
+    modifier.fillMaxSize().background(settingsPageColor()).zoneuPageInsets(),
+  ) {
     SettingsHeader(title = "语音", onBack = onBack)
     Column(
       modifier =

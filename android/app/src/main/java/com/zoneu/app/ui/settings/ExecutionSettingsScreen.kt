@@ -3,7 +3,6 @@ package com.zoneu.app.ui.settings
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
@@ -21,6 +20,7 @@ import com.zoneu.app.accessibility.OverlaySettings
 import com.zoneu.app.agent.ApprovalPolicy
 import com.zoneu.app.agent.ApprovalSettings
 import com.zoneu.app.device.AccessibilityStatus
+import com.zoneu.app.ui.components.zoneuPageInsets
 
 /**
  * 执行层（设置 → 执行层）：无障碍、写操作审批、任务悬浮球。
@@ -43,7 +43,7 @@ fun ExecutionSettingsScreen(
   }
 
   Surface(modifier = modifier.fillMaxSize(), color = settingsPageColor()) {
-    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+    Column(Modifier.fillMaxSize().zoneuPageInsets()) {
       SettingsHeader(title = "手机操作", onBack = onBack)
       Column(
         modifier =

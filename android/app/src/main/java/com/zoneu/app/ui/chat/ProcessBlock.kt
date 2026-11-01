@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import com.zoneu.app.agent.ChatMessage
 import com.zoneu.app.agent.ToolCallState
 import com.zoneu.app.agent.ToolCallView
+import com.zoneu.app.theme.zoneuShapes
 import kotlinx.coroutines.delay
 
 /**
@@ -79,8 +80,8 @@ internal fun ProcessBlock(message: ChatMessage) {
   )
 
   Surface(
-    color = MaterialTheme.colorScheme.surfaceContainerLow,
-    shape = RoundedCornerShape(16.dp),
+    color = MaterialTheme.colorScheme.surfaceContainer,
+    shape = MaterialTheme.zoneuShapes.card,
     modifier = Modifier.fillMaxWidth(),
   ) {
     Column(Modifier.animateContentSize()) {
@@ -270,7 +271,10 @@ private fun ThinkingStepRow(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ToolDetailSheet(call: ToolCallView, onDismiss: () -> Unit) {
-  ModalBottomSheet(onDismissRequest = onDismiss) {
+  ModalBottomSheet(
+    onDismissRequest = onDismiss,
+    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+  ) {
     Column(
       modifier =
         Modifier.fillMaxWidth()
@@ -330,7 +334,7 @@ private fun SheetCode(title: String, text: String) {
     }
     Surface(
       color = MaterialTheme.colorScheme.surfaceContainerHighest,
-      shape = RoundedCornerShape(12.dp),
+      shape = MaterialTheme.shapes.small,
       modifier = Modifier.fillMaxWidth(),
     ) {
       Text(

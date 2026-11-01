@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
@@ -17,6 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.zoneu.app.BuildConfig
 import com.zoneu.app.agent.appVersionName
 import com.zoneu.app.ui.components.UpdateProgressBar
+import com.zoneu.app.ui.components.zoneuPageInsets
 import com.zoneu.app.update.UpdateManager
 
 /**
@@ -31,7 +31,7 @@ import com.zoneu.app.update.UpdateManager
 @Composable
 fun AboutScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
   Surface(modifier = modifier.fillMaxSize(), color = settingsPageColor()) {
-    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+    Column(Modifier.fillMaxSize().zoneuPageInsets()) {
       SettingsHeader(title = "关于", onBack = onBack)
       Column(
         modifier =

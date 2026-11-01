@@ -11,9 +11,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.zoneu.app.theme.LocalZoneuDarkTheme
+import com.zoneu.app.theme.zoneuColors
 
 /**
  * 常驻反馈条：说明 / 成功 / 警告 / 错误。
@@ -37,17 +36,12 @@ object AppBanner {
     action: (@Composable RowScope.() -> Unit)? = null,
   ) {
     val color = MaterialTheme.colorScheme
-    val dark = LocalZoneuDarkTheme.current
+    val semantic = MaterialTheme.zoneuColors
     val (background, foreground) =
       when (tone) {
-        Tone.Info -> color.primary.copy(alpha = if (dark) 0.16f else 0.08f) to color.onSurface
-
-        Tone.Success ->
-          if (dark) Color(0xFF1B3A2A) to Color(0xFF86E0AC) else Color(0xFFDDF3E4) to Color(0xFF176B3A)
-
-        Tone.Warning ->
-          if (dark) Color(0xFF3B2F1A) to Color(0xFFF2C77E) else Color(0xFFFCEFD9) to Color(0xFF8A5A12)
-
+        Tone.Info -> color.secondaryContainer to color.onSecondaryContainer
+        Tone.Success -> semantic.successContainer to semantic.onSuccessContainer
+        Tone.Warning -> semantic.warningContainer to semantic.onWarningContainer
         Tone.Error -> color.errorContainer to color.onErrorContainer
       }
     Row(

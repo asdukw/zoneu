@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -47,6 +46,7 @@ import com.zoneu.app.agent.CharacterStore
 import com.zoneu.app.agent.SecondaryLogic
 import com.zoneu.app.agent.WorldEntry
 import com.zoneu.app.ui.chat.LocalWorldNavigation
+import com.zoneu.app.ui.components.zoneuPageInsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -98,7 +98,7 @@ fun CharacterDetailScreen(
     // 读卡期间先给进度，别闪一帧「角色不存在」。
     Surface(Modifier.fillMaxSize(), color = settingsPageColor()) {
       Column(
-        modifier = Modifier.fillMaxSize().safeDrawingPadding(),
+        modifier = Modifier.fillMaxSize().zoneuPageInsets(),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
       ) {
@@ -212,7 +212,7 @@ internal fun CharacterDetailScreen(
   modifier: Modifier = Modifier,
 ) {
   Surface(modifier = modifier.fillMaxSize(), color = settingsPageColor()) {
-    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+    Column(Modifier.fillMaxSize().zoneuPageInsets()) {
       SettingsHeader(title = card?.name ?: "角色", onBack = onBack)
       if (card == null) {
         MissingCard()

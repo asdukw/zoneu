@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -36,6 +35,7 @@ import com.zoneu.app.agent.CharacterCard
 import com.zoneu.app.agent.SecondaryLogic
 import com.zoneu.app.agent.WorldEntry
 import com.zoneu.app.agent.WorldEntryDraft
+import com.zoneu.app.ui.components.zoneuPageInsets
 import java.util.UUID
 
 /**
@@ -173,7 +173,7 @@ internal fun CharacterEditPage(
   BackHandler(enabled = dirty) { confirmDiscard = true }
 
   Surface(Modifier.fillMaxSize(), color = settingsPageColor()) {
-    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+    Column(Modifier.fillMaxSize().zoneuPageInsets()) {
       SettingsHeader(title = "编辑角色", onBack = ::requestExit) {
         // 长表单的保存原本只在页脚：改完顶部的字段要一路滚到底才能存，这里再给一个入口。
         TextButton(onClick = ::save, enabled = dirty && name.isNotBlank()) { Text("保存") }

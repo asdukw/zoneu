@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -28,6 +27,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zoneu.app.data.db.SCHEDULE_RUN_HISTORY_LIMIT
 import com.zoneu.app.data.db.ScheduledTaskEntity
 import com.zoneu.app.schedule.rule
+import com.zoneu.app.ui.components.zoneuPageInsets
 
 /**
  * 一条任务的执行记录（设置 → 定时任务 → 点某条任务）。
@@ -59,7 +59,7 @@ internal fun ScheduledTaskRunScreen(
   modifier: Modifier = Modifier,
 ) {
   Surface(modifier = modifier.fillMaxSize(), color = settingsPageColor()) {
-    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+    Column(Modifier.fillMaxSize().zoneuPageInsets()) {
       SettingsHeader(title = "执行记录", onBack = onBack)
       Column(
         modifier =
