@@ -181,9 +181,18 @@ const resumeMarker = 'zoneu patch: expose session resume and cancel'
 const resumePath = streamPath
 const resumeOriginal = readFileSync(resumePath, 'utf8')
 if (resumeOriginal.includes('case "session/resume"')) {
+  // 标记串不参与幂等判定，但旧项目名注入过的注释要归一化，否则改名后残留。
+  const normalized = resumeOriginal.replace(
+    /\/\/[^\n]*expose session resume and cancel/g,
+    '// ' + resumeMarker,
+  )
+  if (normalized !== resumeOriginal) writeFileSync(resumePath, normalized)
   console.log('session resume patch already applied')
 } else {
-  const dispatchAnchor = '			case "session/prompt": return this.prompt(params);'
+  // 插在 shutdown 之前，而不是 session/prompt 之后：world-lifecycle 补丁把
+  // "session/prompt" 与 "zoneu/world-request" 当作连续效果做幂等判定，插在中间会
+  // 让第二次装配认不出已打过补丁。两处语义相同，都只依赖稳定的 dispatch 结构。
+  const dispatchAnchor = '			case "shutdown": return this.shutdown();'
   const methodAnchor = '	hasAdapterFor(provider) {'
   if (!resumeOriginal.includes(dispatchAnchor)) {
     throw new Error(`session dispatch 结构变了，找不到锚点：${resumePath}`)
