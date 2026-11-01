@@ -169,6 +169,7 @@ private fun EntryProviderScope<NavKey>.tavernEntries(tabs: ZoneuTabs) {
     CharacterScreen(
       onBack = { tabs.back() },
       onOpenDetail = { id -> tabs.push(ZoneuTab.Characters, CharacterDetail(id)) },
+      root = true,
     )
   }
   entry<CharacterDetail> { key ->

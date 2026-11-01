@@ -79,7 +79,8 @@ internal fun SectionLabel(text: String) {
   Text(
     text = text,
     style = MaterialTheme.typography.labelLargeEmphasized,
-    color = MaterialTheme.colorScheme.primary,
+    // 分组标题是结构，不是操作：主色留给可点的东西，标题用中性色免得整页发蓝。
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
     modifier = Modifier.padding(start = ZoneuSpacing.sm, top = ZoneuSpacing.xl, bottom = ZoneuSpacing.sm),
   )
 }

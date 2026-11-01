@@ -114,7 +114,7 @@ internal fun VoiceScreen(
         SettingsRow(
           glyph = GlyphKind.Key,
           title = "API Key",
-          subtitle = if (state.hasKey) "已配置（Keystore 封装）" else "未配置：朗读不可用",
+          subtitle = if (state.hasKey) "已设置" else "未设置：朗读不可用",
         ) {
           if (state.hasKey) {
             TextButton(onClick = onClearKey) { Text("清除") }

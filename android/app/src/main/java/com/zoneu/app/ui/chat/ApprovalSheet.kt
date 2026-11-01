@@ -52,15 +52,17 @@ fun ApprovalSheet(pending: PendingApproval) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
       Spacer(Modifier.height(8.dp))
-      // 工具名原样显示：用户要能看出「批准的是什么」，映射成中文反倒藏掉了信息。
+      // 显示中文动作名，不显示原始工具 id：用户要判断的是「它要做什么」，
+      // 不是记住 `tap_node` 这种内部命名。具体的对象与参数来自 displayReason。
       Text(
-        "工具「${pending.toolName}」想执行一次操作",
+        text = toolDisplayName(pending.toolName),
         style = MaterialTheme.typography.headlineSmallEmphasized,
       )
-      detail?.takeIf { it.isNotBlank() }?.let {
-        Spacer(Modifier.height(8.dp))
-        Text(it, style = MaterialTheme.typography.bodyMedium)
-      }
+      Spacer(Modifier.height(8.dp))
+      Text(
+        text = detail?.takeIf { it.isNotBlank() } ?: "模型想替你执行一次需要确认的操作。",
+        style = MaterialTheme.typography.bodyMedium,
+      )
       Spacer(Modifier.height(10.dp))
       Text(
         "这是一次性授权，只对这一次操作有效。拒绝不会中断任务，模型会收到「未获允许」。",

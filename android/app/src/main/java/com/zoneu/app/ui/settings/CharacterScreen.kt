@@ -47,6 +47,8 @@ import com.zoneu.app.ui.components.zoneuPageInsets
 fun CharacterScreen(
   onBack: () -> Unit,
   onOpenDetail: (String) -> Unit = {},
+  // 作为底部页签的根目的地时不画返回键：那里没有上一页可回，箭头按下去是空的。
+  root: Boolean = false,
   modifier: Modifier = Modifier,
 ) {
   val appContext = LocalContext.current.applicationContext
@@ -75,6 +77,7 @@ fun CharacterScreen(
     onDismissMessage = viewModel::consumeMessage,
     // 点一行进详情页：卡里存着人设 / 开场 / 世界设定，直接开聊等于逼用户先聊再判断。
     onOpenDetail = onOpenDetail,
+    root = root,
     modifier = modifier,
   )
 }
@@ -89,13 +92,14 @@ internal fun CharacterScreen(
   onDismissMessage: () -> Unit = {},
   onOpenDetail: (String) -> Unit = {},
   onCreateBlank: () -> Unit = {},
+  root: Boolean = false,
   modifier: Modifier = Modifier,
 ) {
   val appContext = LocalContext.current.applicationContext
   var query by remember { mutableStateOf("") }
   Surface(modifier = modifier.fillMaxSize(), color = settingsPageColor()) {
     Column(Modifier.fillMaxSize().zoneuPageInsets()) {
-      SettingsHeader(title = "角色", onBack = onBack)
+      if (!root) SettingsHeader(title = "角色", onBack = onBack)
       Column(
         modifier =
           Modifier.fillMaxSize()
@@ -103,6 +107,7 @@ internal fun CharacterScreen(
             .padding(horizontal = 16.dp)
             .padding(bottom = 24.dp),
       ) {
+        if (root) BigTitle("角色")
         if (state.active != null) {
           ActiveBanner(card = state.active!!, applying = state.applying, onStop = onStop)
         }
@@ -207,7 +212,7 @@ private fun CardSourceRows(importing: Boolean, onImport: () -> Unit, onCreateBla
     SettingsRow(
       glyph = GlyphKind.Plus,
       title = if (importing) "正在读取…" else "导入角色卡",
-      subtitle = "支持 SillyTavern 的 PNG 卡或 JSON（只取人设与语气）",
+      subtitle = "从文件选一张角色卡（只取人设与语气）",
       enabled = !importing,
       onClick = onImport,
     ) {

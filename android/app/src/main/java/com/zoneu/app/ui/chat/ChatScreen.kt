@@ -148,7 +148,6 @@ import com.zoneu.app.agent.SessionRecap
 import com.zoneu.app.agent.TavernMacros
 import com.zoneu.app.agent.TavernTurns
 import com.zoneu.app.agent.TavernVars
-import com.zoneu.app.agent.Tokens
 import com.zoneu.app.agent.ToolCallState
 import com.zoneu.app.agent.ToolCallView
 import com.zoneu.app.agent.UserQuestionHub
@@ -827,11 +826,10 @@ private fun ChatBody(
       .fillMaxSize()
       .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
   ) {
-    val modelSubtitle =
-      listOf(state.providerName, state.model).filter { it.isNotBlank() }.joinToString(" · ")
     ChatTopBar(
       title = sessionTitle,
-      subtitle = if (state.inRoleplay) "角色扮演 · $modelSubtitle" else modelSubtitle,
+      // 顶栏只说「这是谁」。提供商与模型 id 是配置细节，属于设置页，不属于聊天页。
+      subtitle = if (state.inRoleplay) "角色扮演" else "",
       onOpenSessions = onOpenSessions,
       onNewSession = onNewSession,
       onLeaveRoleplay = if (state.inRoleplay) onLeaveRoleplay else null,
@@ -1448,7 +1446,7 @@ private fun StatusBanners(state: ChatUiState, voiceError: String?, dictation: Vo
   if (!state.configured) {
     // 没填 key 是「还没配好」而不是出错：用警告色，别让首屏第一眼就是红的。
     BannerText(
-      "未配置 API key：点左上角菜单 → 设置，填自己的 key（存进 Keystore）。",
+      "还没有可用的模型：去设置里选一个服务，就能开始聊了。",
       tone = AppBanner.Tone.Warning,
     )
   }
@@ -1570,7 +1568,7 @@ private fun RoleplayList(
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
       Text("酒馆里还没有角色", style = MaterialTheme.typography.bodyMedium)
       Text(
-        text = "导入一张角色卡（PNG 或 JSON），它的开场白、人设和世界设定只在酒馆会话里生效，不影响日常。",
+        text = "从文件导入一张角色卡，它的开场白、人设和世界设定只在酒馆会话里生效，不影响日常。",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 6.dp),
@@ -2270,17 +2268,6 @@ private fun AssistantActions(
         TextAction(text = "从此处重来", onClick = { onConfirm(ConfirmingTurn.RetryFrom) })
       }
     }
-    // token 计数贴在末尾：它是「这一条花了多少上下文」，不是这句话的一部分，
-    // 所以用最轻的字重与最旁边的位置，不抢正文的注意力。maxLines=1 保证它不会被压成竖排。
-    if (message.content.isNotBlank()) {
-      Text(
-        text = "≈${Tokens.format(Tokens.estimate(message.content))} tokens",
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1,
-        modifier = Modifier.padding(start = 8.dp),
-      )
-    }
   }
 }
 
@@ -2849,7 +2836,7 @@ private fun ModelSwitchList(
         Text(
           text =
             if (choicesEmpty) {
-              "还没有可用模型。去 设置 → 提供商 从端点添加，再回来切换。"
+              "还没有可用的模型。先去设置里连上一个服务。"
             } else {
               "没有匹配的模型"
             },
