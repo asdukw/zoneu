@@ -134,6 +134,7 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: bash workflow-tools/tools/ci/release-patches.sh source release-artifacts "$TAG" 6
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -206,8 +207,10 @@ jobs:
             echo ""
             echo "- Source commit: $SOURCE_SHA"
             echo "- APK: $(stat -c%s "release-artifacts/$ASSET") bytes"
-            PATCHES=$(cd release-artifacts && ls -1 ./*.patch 2>/dev/null | wc -l)
-            echo "- 补丁: $PATCHES 个（清单 $(cd release-artifacts && ls -1 zoneu-patches.json 2>/dev/null | wc -l) 份）"
+            # find 在零匹配时仍返回 0；`ls glob | wc -l` 在 pipefail 下会把「没有补丁」当成失败。
+            PATCHES=$(find release-artifacts -maxdepth 1 -name '*.patch' | wc -l)
+            MANIFESTS=$(find release-artifacts -maxdepth 1 -name 'zoneu-patches.json' | wc -l)
+            echo "- 补丁: $PATCHES 个（清单 $MANIFESTS 份）"
             echo "- SHA-256: \`$(cut -d' ' -f1 "release-artifacts/$ASSET.sha256")\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
