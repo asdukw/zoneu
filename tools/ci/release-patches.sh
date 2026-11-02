@@ -19,6 +19,11 @@ WINDOW=${4:-6}
 : "${GH_REPO:?缺少 GH_REPO}"
 : "${ANDROID_HOME:?缺少 ANDROID_HOME}"
 
+# 绝对化：generatePatch 在 "$SOURCE/android" 下运行，相对路径会被拼成 source/android/source/...
+SOURCE=$(cd "$SOURCE" && pwd)
+mkdir -p "$ARTIFACTS"
+ARTIFACTS=$(cd "$ARTIFACTS" && pwd)
+
 APK="$SOURCE/android/app/build/outputs/apk/release/app-release.apk"
 AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt2"
 [ -f "$APK" ] || { echo "::error::找不到 release APK：$APK"; exit 1; }
@@ -88,7 +93,7 @@ for file in "$WORK"/out/*.patch "$WORK"/out/zoneu-patches.json; do
 done
 (cd "$ARTIFACTS" && for patch in ./*.patch; do sha256sum "$patch" > "$patch.sha256"; done)
 
-COUNT=$(ls -1 "$ARTIFACTS"/*.patch 2>/dev/null | wc -l)
+COUNT=$(find "$ARTIFACTS" -maxdepth 1 -name '*.patch' | wc -l)
 echo "::notice::已生成 $COUNT 个补丁 + zoneu-patches.json"
 if [ ${#SKIPPED[@]} -gt 0 ]; then
   echo "::warning::跳过的基线：${SKIPPED[*]}"
