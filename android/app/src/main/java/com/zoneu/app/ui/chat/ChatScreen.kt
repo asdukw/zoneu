@@ -173,6 +173,7 @@ import com.zoneu.app.theme.zoneuColors
 import com.zoneu.app.theme.zoneuShapes
 import com.zoneu.app.ui.components.AppBanner
 import com.zoneu.app.ui.components.ProviderModelIcon
+import com.zoneu.app.ui.settings.CharacterThumb
 import com.zoneu.app.ui.settings.ChevronRight
 import com.zoneu.app.ui.settings.Glyph
 import com.zoneu.app.ui.settings.GlyphKind
@@ -1659,6 +1660,7 @@ private fun RoleplayHeader(
       modifier = Modifier.padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
       verticalAlignment = Alignment.CenterVertically,
     ) {
+      CharacterThumb(group.characterId, group.name, 36.dp, Modifier.padding(end = 10.dp))
       Column(Modifier.weight(1f)) {
         Text(
           // 收藏的卡带一个星号：侧栏一排名字时，这是唯一能一眼看出「哪张是我常用的」的记号。

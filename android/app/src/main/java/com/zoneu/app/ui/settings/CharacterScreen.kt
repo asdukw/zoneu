@@ -2,22 +2,27 @@ package com.zoneu.app.ui.settings
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -93,68 +98,85 @@ internal fun CharacterScreen(
 ) {
   val appContext = LocalContext.current.applicationContext
   var query by remember { mutableStateOf("") }
+  val snackbar = remember { SnackbarHostState() }
+  // 「已删除」这类一句话的回执走 Snackbar：它留在列表里会变成一张永远不走的卡片，
+  // 打断「角色卡」到「角色如何生效」的阅读。导入结果带着兼容报告，才留在页面里。
+  val message = state.message
+  LaunchedEffect(message) {
+    if (message == null || !transientNotice(message, state.notes)) return@LaunchedEffect
+    // 先等 Snackbar 走完再清消息：清消息会换键，正在显示的 Snackbar 会被一起取消。
+    snackbar.showSnackbar(message)
+    onDismissMessage()
+  }
   Surface(modifier = modifier.fillMaxSize(), color = settingsPageColor()) {
-    Column(Modifier.fillMaxSize().zoneuPageInsets()) {
-      SettingsHeader(title = "角色与世界", onBack = onBack)
-      Column(
-        modifier =
-          Modifier.fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 24.dp),
-      ) {
-        if (state.active != null) {
-          ActiveBanner(card = state.active!!, applying = state.applying, onStop = onStop)
-        }
+    Box(Modifier.fillMaxSize()) {
+      Column(Modifier.fillMaxSize().zoneuPageInsets()) {
+        SettingsHeader(title = "角色与世界", onBack = onBack)
+        Column(
+          modifier =
+            Modifier.fillMaxSize()
+              .verticalScroll(rememberScrollState())
+              .padding(horizontal = 16.dp)
+              .padding(bottom = 24.dp),
+        ) {
+          if (state.active != null) {
+            ActiveBanner(card = state.active!!, applying = state.applying, onStop = onStop)
+          }
 
-        SectionLabel("角色卡")
-        if (state.unreadableCards > 0) {
-          Text(
-            "有 ${state.unreadableCards} 份角色文件损坏或身份冲突，已隔离且未覆盖；正常卡仍可管理。请从原文件重新导入恢复。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
+          SectionLabel("角色卡")
+          if (state.unreadableCards > 0) {
+            Text(
+              "有 ${state.unreadableCards} 份角色文件损坏或身份冲突，已隔离且未覆盖；正常卡仍可管理。请从原文件重新导入恢复。",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.error,
+            )
+          }
+          CardSourceRows(importing = state.importing, onImport = onImport, onCreateBlank = onCreateBlank)
+          CardSearchField(query = query, onChange = { query = it })
+          CardList(
+            cards = state.cards,
+            query = query,
+            activeId = state.activeId,
+            pins = CharacterPins.pinned(appContext),
+            onOpen = onOpenDetail,
+            onDelete = onDelete,
           )
-        }
-        CardSourceRows(importing = state.importing, onImport = onImport, onCreateBlank = onCreateBlank)
-        CardSearchField(query = query, onChange = { query = it })
-        CardList(
-          cards = state.cards,
-          query = query,
-          activeId = state.activeId,
-          pins = CharacterPins.pinned(appContext),
-          onOpen = onOpenDetail,
-          onDelete = onDelete,
-        )
 
-        state.message?.let { message ->
-          ImportMessage(message = message, notes = state.notes, onDismiss = onDismissMessage)
-        }
+          val shown = state.message
+          if (shown != null && !transientNotice(shown, state.notes)) {
+            ImportMessage(message = shown, notes = state.notes, onDismiss = onDismissMessage)
+          }
 
-        // 选中一张卡后，把「你会看到什么」摊开：开场白与场景。改不了，但能判断要不要进去。
-        val preview = state.active
-        if (preview != null) {
-          SectionLabel("开场")
-          SettingsGroup {
-            Column(Modifier.padding(16.dp)) {
-              Text(
-                text = preview.firstMes.ifBlank { "（这张卡没有写开场白）" },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-              )
-              if (preview.scenario.isNotBlank()) {
-                Spacer(Modifier.height(10.dp))
+          // 选中一张卡后，把「你会看到什么」摊开：开场白与场景。改不了，但能判断要不要进去。
+          val preview = state.active
+          if (preview != null) {
+            SectionLabel("开场")
+            SettingsGroup {
+              Column(Modifier.padding(16.dp)) {
                 Text(
-                  text = "场景：" + preview.scenario.replace("{{user}}", "你").replace("{{char}}", preview.name),
-                  style = MaterialTheme.typography.bodySmall,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  text = preview.firstMes.ifBlank { "（这张卡没有写开场白）" },
+                  style = MaterialTheme.typography.bodyMedium,
+                  color = MaterialTheme.colorScheme.onSurface,
                 )
+                if (preview.scenario.isNotBlank()) {
+                  Spacer(Modifier.height(10.dp))
+                  Text(
+                    text = "场景：" + preview.scenario.replace("{{user}}", "你").replace("{{char}}", preview.name),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  )
+                }
               }
             }
           }
-        }
 
-        HowCharactersWork()
+          HowCharactersWork()
+        }
       }
+      SnackbarHost(
+        hostState = snackbar,
+        modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(16.dp),
+      )
     }
   }
 }
@@ -190,6 +212,10 @@ private fun CardSearchField(query: String, onChange: (String) -> Unit) {
     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
   )
 }
+
+/** 一句话的回执（删除、退出扮演…）走 Snackbar；导入结果带着兼容报告，才留在页面里。 */
+private fun transientNotice(message: String, notes: List<String>): Boolean =
+  notes.isEmpty() && !message.contains("导入")
 
 /** 导入结果：成功一行 + 兼容报告摘要（这正是「不信任外部卡」对用户可见的部分）。 */
 @Composable
@@ -264,6 +290,7 @@ private fun CardList(
       if (index > 0) SettingsDivider()
       SettingsRow(
         glyph = GlyphKind.Person,
+        leading = { CharacterThumb(card.id, card.name, 40.dp) },
         // 收藏的卡在列表里也带个记号，不然点进详情才知道自己收藏过。
         title = if (card.id in pins) "★ ${card.name}" else card.name,
         subtitle = card.tagline.ifEmpty { card.tags.take(6).joinToString(" · ") },

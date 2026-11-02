@@ -109,6 +109,8 @@ internal fun SettingsDivider() {
 /**
  * 一行设置。[onClick] 为空或 [enabled] 为假时不可点；[trailing] 放状态徽章或箭头。
  * 图标与文案对不齐是这类页面最常见的视觉 bug —— 图标固定 24dp、标题 16sp，行高统一 64dp 起。
+ *
+ * [leading] 可以换掉左边那个图标圆（角色列表用它放卡图）；不传就还是线稿图标。
  */
 @Composable
 internal fun SettingsRow(
@@ -118,6 +120,7 @@ internal fun SettingsRow(
   modifier: Modifier = Modifier,
   onClick: (() -> Unit)? = null,
   enabled: Boolean = true,
+  leading: (@Composable () -> Unit)? = null,
   trailing: @Composable RowScope.() -> Unit = {},
 ) {
   val clickable = onClick != null && enabled
@@ -148,21 +151,7 @@ internal fun SettingsRow(
         overflow = TextOverflow.Ellipsis,
       )
     },
-    leadingContent = {
-      Box(
-        modifier =
-          Modifier.size(40.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-        contentAlignment = Alignment.Center,
-      ) {
-        Glyph(
-          kind = glyph,
-          modifier = Modifier.size(22.dp),
-          tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.45f),
-        )
-      }
-    },
+    leadingContent = { if (leading != null) leading() else GlyphCircle(glyph, enabled) },
     trailingContent = { Row(verticalAlignment = Alignment.CenterVertically) { trailing() } },
     colors =
       ListItemDefaults.colors(
@@ -173,6 +162,23 @@ internal fun SettingsRow(
         trailingContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
       ),
   )
+}
+
+@Composable
+private fun GlyphCircle(glyph: GlyphKind, enabled: Boolean) {
+  Box(
+    modifier =
+      Modifier.size(40.dp)
+        .clip(CircleShape)
+        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+    contentAlignment = Alignment.Center,
+  ) {
+    Glyph(
+      kind = glyph,
+      modifier = Modifier.size(22.dp),
+      tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.45f),
+    )
+  }
 }
 
 @Composable
