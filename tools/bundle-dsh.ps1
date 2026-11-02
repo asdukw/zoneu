@@ -137,41 +137,10 @@ Copy-Item -Force (Join-Path $src "ripgrep-stub/package.json") $rgStub
 Copy-Item -Force (Join-Path $src "ripgrep-stub/index.js") $rgStub
 $assets = Split-Path -Parent $zipOut
 New-Item -ItemType Directory -Force -Path $assets | Out-Null
-if (Test-Path -LiteralPath $zipOut) { Remove-Item -LiteralPath $zipOut }
-Write-Host "packing $zipOut ..."
-# 用 .NET 的 ZipFile 而不是 tar/Compress-Archive：
-#   - Windows 的 bsdtar 支持 `tar -a -c -f x.zip`，**Linux 的 GNU tar 不支持写 zip**
-#     （它要么报错、要么给你一个改成 .zip 后缀的 tar）—— 而 CI 是 Linux。
-#   - App 侧是用 ZipInputStream 解压的，包的必须是真 zip。tar 冒充 zip 会在设备上才炸。
-[System.Reflection.Assembly]::LoadWithPartialName("System.IO.Compression.FileSystem") | Out-Null
-[System.IO.Compression.ZipFile]::CreateFromDirectory(
-  $work,
-  $zipOut,
-  [System.IO.Compression.CompressionLevel]::Optimal,
-  $false
-)
-
-# 打完立刻验一下「这确实是个 zip」：前四个字节必须是 PK。
-# 这类错误在设备上表现成「解压失败 / 运行时起不来」，不值得留到那一步才发现。
-$head = [System.IO.File]::ReadAllBytes($zipOut)[0..3]
-if ($head[0] -ne 0x50 -or $head[1] -ne 0x4B -or $head[2] -ne 0x03 -or $head[3] -ne 0x04) {
-  throw "打出来的不是 zip（头四字节不是 PK）：$zipOut"
-}
-
-# 再验条目名的分隔符：**必须是正斜杠**。
-# Windows PowerShell 5.1（.NET Framework）的 ZipFile::CreateFromDirectory 会按
-# Path.DirectorySeparatorChar 写成 ``，而那是**不合规的 zip**：App 侧的 ZipInputStream
-# 会把它当成一个扁平文件名，解出来是 `node_modules.bincordis` 这样的文件而不是目录树，
-# 于是运行时起不来，报的是 `ERR_MODULE_NOT_FOUND: Cannot find package '@deepseek-ai/cordis'`
-# —— 看着像依赖没装，其实是包写坏了。pwsh 7（.NET Core）没这个问题，所以「在谁家 shell 下跑的」
-# 决定了产物对不对；这条检查就是为了不让它取决于这个。实测踩过一次（2026-10-18）。
-$archive = [System.IO.Compression.ZipFile]::OpenRead($zipOut)
-try {
-  $bad = $archive.Entries | Where-Object { $_.FullName.Contains([char]92) } | Select-Object -First 1
-  if ($null -ne $bad) {
-    throw "zip 条目名用了反斜杠（$($bad.FullName)）—— 这个包在设备上解不出目录树。请用 pwsh 7 重跑本脚本。"
-  }
-} finally {
-  $archive.Dispose()
-}
-Write-Host "done: $([math]::Round((Get-Item $zipOut).Length/1MB,1))MB"
+# 打包交给 tools/pack-dsh-runtime.ps1：它**固定条目时间戳与顺序**，保证同一份内容两次装配
+# 逐字节相同 —— 应用内补丁能不能只传变化的部分完全取决于这条性质（实测见 docs/build.md）。
+# 它同时负责「必须是真 zip」「条目名必须是正斜杠」两条断言：
+#   - Linux 的 GNU tar 写不了 zip，会给你一个改了后缀的 tar，装了才炸（v0.1.0 的教训）；
+#   - 反斜杠条目名会让 App 侧 ZipInputStream 解出扁平文件名而不是目录树，
+#     报的是 ERR_MODULE_NOT_FOUND，看着像依赖没装（2026-10-18 的教训）。
+& (Join-Path $PSScriptRoot "pack-dsh-runtime.ps1") -SourceDir $work -ZipPath $zipOut

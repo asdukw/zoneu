@@ -126,6 +126,16 @@ jobs:
           cp source/android/app/build/outputs/apk/release/app-release.apk "release-artifacts/$ASSET"
           (cd release-artifacts && sha256sum "$ASSET" > "$ASSET.sha256")
 
+      # 补丁与清单：失败**不阻断发布**（见 docs/releasing.md「补丁资产」）。
+      # 生成器来自源码（:app:generatePatch），与设备侧解码器同源；老 tag 没有这个任务就会失败，
+      # 那正是「该版本不发补丁」。基线从 release 重新下载并按其 .sha256 校验。
+      - name: 生成补丁与清单（失败不阻断发布）
+        if: always() && steps.artifact.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash workflow-tools/tools/ci/release-patches.sh source release-artifacts "$TAG" 6
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-artifacts
@@ -179,7 +189,12 @@ jobs:
 
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
-          subject-path: release-artifacts/*.apk
+          # APK 与补丁资产一起做来源证明：两者都是用户机器会执行/依赖的字节。
+          subject-path: |
+            release-artifacts/*.apk
+            release-artifacts/*.patch
+            release-artifacts/*.patch.sha256
+            release-artifacts/zoneu-patches.json
           predicate-type: https://slsa.dev/provenance/v1
           predicate-path: release-provenance.json
 
@@ -191,6 +206,8 @@ jobs:
             echo ""
             echo "- Source commit: $SOURCE_SHA"
             echo "- APK: $(stat -c%s "release-artifacts/$ASSET") bytes"
+            PATCHES=$(cd release-artifacts && ls -1 ./*.patch 2>/dev/null | wc -l)
+            echo "- 补丁: $PATCHES 个（清单 $(cd release-artifacts && ls -1 zoneu-patches.json 2>/dev/null | wc -l) 份）"
             echo "- SHA-256: \`$(cut -d' ' -f1 "release-artifacts/$ASSET.sha256")\`"
           } >> "$GITHUB_STEP_SUMMARY"
 

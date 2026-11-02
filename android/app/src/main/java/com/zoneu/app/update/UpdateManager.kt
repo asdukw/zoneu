@@ -1,6 +1,7 @@
 package com.zoneu.app.update
 
 import android.content.Context
+import android.util.Log
 import com.zoneu.app.agent.appVersionName
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 /**
  * 更新流程的**唯一状态源**。
@@ -31,6 +33,9 @@ import kotlinx.coroutines.withContext
  *    离开设置页 / 关掉弹窗都不影响。进程被杀则靠 `.part` 文件续传。
  */
 object UpdateManager {
+  /** 这次拉的是整包还是补丁。 */
+  enum class Mode { FULL, PATCH }
+
   /** 更新链路的全部状态。UI 只读它，不做判断。 */
   sealed interface State {
     /** 还没查过。 */
@@ -43,7 +48,20 @@ object UpdateManager {
     /** 查到新版本，等用户点下载。 */
     data class Available(val release: AppUpdater.Release) : State
 
-    data class Downloading(val release: AppUpdater.Release, val progress: UpdateDownloader.Progress) : State
+    /** [mode] 只影响界面文案（"正在下载补丁" / "正在下载完整包"），不影响任何判据。 */
+    data class Downloading(
+      val release: AppUpdater.Release,
+      val progress: UpdateDownloader.Progress,
+      val mode: Mode = Mode.FULL,
+    ) : State
+
+    /**
+     * 补丁已下载完，正在把它拼成目标 APK 并校验。
+     *
+     * 独立成一个状态而不是复用 [Downloading]：这一步没有字节进度（配方是流式搬运，几十秒内结束），
+     * 界面该显示不确定进度条 + 一句"正在合并更新"，而不是一个卡在 100% 的数字。
+     */
+    data class Merging(val release: AppUpdater.Release) : State
 
     /** 已下载且**校验通过**，等用户点安装。 */
     data class Ready(val version: String) : State
@@ -133,12 +151,7 @@ object UpdateManager {
     _state.value = State.Downloading(release, UpdateDownloader.Progress(0, -1))
     job =
       scope.launch {
-        val outcome =
-          runCatching {
-            UpdateDownloader.download(app, release) { progress ->
-              _state.value = State.Downloading(release, progress)
-            }
-          }
+        val outcome = runCatching { downloadOrPatch(app, release) }
         outcome
           .onSuccess {
             _state.value = State.Ready(release.version)
@@ -153,6 +166,39 @@ object UpdateManager {
           }
       }
   }
+
+  /**
+   * 先试补丁，不行就整包。
+   *
+   * 「不行」包括判据不过（[UpdatePlanner.resolve] 直接给 [UpdatePlan.Full]）和补丁路径上任何一步
+   * 抛错。**两种情况都不写 [State.Failed]**：兜底路径会成功，报错只会让用户以为更新坏了。
+   */
+  private suspend fun downloadOrPatch(app: Context, release: AppUpdater.Release): File {
+    val plan = withContext(Dispatchers.IO) { UpdatePlanner.resolve(app, release) }
+    if (plan !is UpdatePlan.Patch) return downloadFull(app, release)
+    val patch =
+      runCatching {
+        val file =
+          UpdateDownloader.downloadPatch(app, release, plan.entry, plan.url) { progress ->
+            _state.value = State.Downloading(release, progress, Mode.PATCH)
+          }
+        _state.value = State.Merging(release)
+        // 合并是 150 MiB 级的随机读 + 顺序写：必须在 IO 线程上，否则主线程会 ANR。
+        withContext(Dispatchers.IO) { PatchInstaller.merge(app, plan, file, release.version) }
+      }
+    val merged = patch.getOrNull()
+    if (merged != null) return merged
+    val error = patch.exceptionOrNull()
+    // 取消不是失败：交给调用方按 CancellationException 处理（半截文件留着续传）。
+    if (error is CancellationException) throw error
+    Log.w("zoneu", "补丁路径失败，改用整包：${error?.javaClass?.simpleName}: ${error?.message}")
+    return downloadFull(app, release)
+  }
+
+  private suspend fun downloadFull(app: Context, release: AppUpdater.Release): File =
+    UpdateDownloader.download(app, release) { progress ->
+      _state.value = State.Downloading(release, progress, Mode.FULL)
+    }
 
   /**
    * 取消下载。

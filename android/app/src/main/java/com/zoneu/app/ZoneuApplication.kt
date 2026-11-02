@@ -7,6 +7,7 @@ import com.zoneu.app.data.db.ZoneuDatabaseProvider
 import com.zoneu.app.data.session.RoomSessionStore
 import com.zoneu.app.data.session.SessionStore
 import com.zoneu.app.schedule.ExactAlarmMonitor
+import com.zoneu.app.update.UpdateDownloader
 import com.zoneu.app.voice.AsrModelCatalog
 import com.zoneu.app.voice.VoiceModelInstaller
 import com.zoneu.app.voice.VoiceModelKinds
@@ -36,6 +37,12 @@ class ZoneuApplication : Application() {
       runCatching { sessionStore.markStreamingAsInterrupted() }
         .onSuccess { count -> if (count > 0) Log.i(TAG, "改判 $count 条中断的流式消息") }
         .onFailure { Log.w(TAG, "会话库初始化失败: ${it.javaClass.simpleName}") }
+    }
+
+    appScope.launch {
+      // 更新装上了就把这次下载的包清掉（判据见 UpdateDownloader.cleanupAfterInstall）。
+      runCatching { UpdateDownloader.cleanupAfterInstall(this@ZoneuApplication) }
+        .onFailure { Log.w(TAG, "清理更新下载物失败: ${it.javaClass.simpleName}") }
     }
 
     appScope.launch {

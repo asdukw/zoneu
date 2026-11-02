@@ -2,6 +2,7 @@ package com.zoneu.app.update
 
 import android.content.Context
 import android.content.pm.PackageManager
+import com.zoneu.app.update.patch.PatchManifest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -173,15 +174,83 @@ object UpdateDownloader {
     return left.isNotEmpty() && left == right
   }
 
+  /**
+   * 取补丁字节。
+   *
+   * 与整包共用 [fetchInto] 是刻意的：续传那三个坑（`If-Range`、206 的剩余长度、416）只该有一份
+   * 实现，两份迟早会漂移。区别只在落盘文件名与最后的校验值是 `patchSha256` 而不是整包哈希。
+   */
+  internal suspend fun downloadPatch(
+    context: Context,
+    release: AppUpdater.Release,
+    entry: PatchManifest.Entry,
+    url: String,
+    onProgress: (Progress) -> Unit = {},
+  ): File =
+    withContext(Dispatchers.IO) {
+      val expected = entry.patchSha256.lowercase()
+      require(expected.length == 64) { "PATCH_SHA256_MALFORMED" }
+      val target = patchFile(context, release.version)
+      // 上次已经下好并校验过的补丁：重试时不该再拉一遍。
+      if (target.isFile && UpdateHttp.sha256(target) == expected) {
+        onProgress(Progress(target.length(), target.length()))
+        return@withContext target
+      }
+      pruneStalePartials(context, release.version)
+      val part = File(context.cacheDir, "${target.name}$PART_SUFFIX")
+      val meta = File(context.cacheDir, "${part.name}$ETAG_SUFFIX")
+      fetchInto(url, part, meta, onProgress)
+      if (UpdateHttp.sha256(part) != expected) {
+        part.delete()
+        meta.delete()
+        error("PATCH_HASH_MISMATCH")
+      }
+      target.delete()
+      if (!part.renameTo(target)) {
+        part.delete()
+        meta.delete()
+        error("RENAME_FAILED")
+      }
+      meta.delete()
+      target
+    }
+
+  /**
+   * 安装生效后的下一次启动清理下载物。
+   *
+   * 判据是 `PackageInfo.lastUpdateTime` 的水位（见 [UpdatePreferences.installWatermark]）：
+   * - 装上了 → 水位变了 → 删掉 cacheDir 里这次下载的包（它们已经完成使命）；
+   * - 用户在安装器里取消 → 水位不变 → **不删**，再点「安装」还能直接用，不必重下 150 MiB。
+   *
+   * **不能**在交付给安装器之后立刻删：安装器是异步读那个文件的，删早了就是「安装失败」。
+   */
+  fun cleanupAfterInstall(context: Context) {
+    val app = context.applicationContext
+    val installedAt =
+      runCatching { app.packageManager.getPackageInfo(app.packageName, 0).lastUpdateTime }.getOrDefault(0L)
+    val seen = UpdatePreferences.installWatermark(app)
+    if (installedAt <= 0L || installedAt == seen) return
+    UpdatePreferences.setInstallWatermark(app, installedAt)
+    // 水位从 0 变成有值 = 第一次记下（新装，或升级到带清理的第一个版本）。
+    // 这时 cacheDir 里可能有「刚好在等安装器读」的包，不删。
+    if (seen == 0L) return
+    app.cacheDir.listFiles()?.filter { it.name.startsWith("update-") }?.forEach { it.delete() }
+  }
+
   private fun partFile(context: Context, version: String): File =
     File(context.cacheDir, "update-$version.apk$PART_SUFFIX")
 
   private fun etagFile(context: Context, version: String): File =
     File(context.cacheDir, "update-$version.apk$ETAG_SUFFIX")
 
+  /** 补丁的落地位置。`patchSha256` 校验通过后才叫这个名字。 */
+  fun patchFile(context: Context, version: String): File = File(context.cacheDir, "update-$version.patch")
+
   /** 清掉别的版本留下的半截文件：换了版本之后它们再也接不上，只会白占 cacheDir。 */
   private fun pruneStalePartials(context: Context, keepVersion: String) {
-    val keep = partFile(context, keepVersion).name
+    // 按「版本前缀」保留而不是按某个具体文件名：同一个版本可能同时有 `.apk`、`.apk.part`、
+    // `.patch`、`.patch.part` 四样，卡死一个名字会把紧挨着的另一样也删掉。
+    val keep = "update-$keepVersion"
     context.cacheDir
       .listFiles()
       ?.filter { it.name.startsWith("update-") && it.name != keep && !it.name.startsWith(keep) }

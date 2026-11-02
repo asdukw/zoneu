@@ -47,6 +47,24 @@ jobs:
           # Fork PR 没有 secret 时传空值，Gradle 正常构建，只不跨 runner 保存配置缓存。
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
+      - name: 可复现性门禁（两次装配比哈希）
+        # 应用内补丁只传"变化的部分"，前提是没变化的部分真的没变。实测 v2.1.0 -> v2.2.0
+        # 的 dsh-runtime.zip 内层 25953 个条目里 25945 个内容相同、只有 mtime 不同，
+        # 却让每次更新多传 63 MiB。这里拿 setup-build 已装配的那份与再跑一次的结果比哈希。
+        # 理由与排查入口见 docs/build.md §5。
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $zip = "android/app/src/main/assets/dsh-runtime.zip"
+          $first = (Get-FileHash $zip -Algorithm SHA256).Hash
+          ./tools/bundle-dsh.ps1
+          $second = (Get-FileHash $zip -Algorithm SHA256).Hash
+          Write-Host "装配 #1  $first"
+          Write-Host "装配 #2  $second"
+          if ($first -ne $second) {
+            throw "dsh 运行时装配不可复现：两次哈希不同。补丁会退化成全量下载，排查入口见 docs/build.md §5"
+          }
+
       - name: 出包（debug + release）
         working-directory: android
         run: ./gradlew :app:assembleDebug :app:assembleRelease --console=plain

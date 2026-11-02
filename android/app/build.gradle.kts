@@ -241,6 +241,23 @@ kotlin {
   jvmToolchain(17)
 }
 
+// 发布侧补丁生成器（`./gradlew :app:generatePatch --args="..."`）。
+//
+// 走**单元测试的运行时类路径**：那里已经包含 app 的编译产物（`update/patch/` 是纯 JVM 代码）
+// 与 kotlin-stdlib，不需要为了一个工具另开 Gradle 模块。与应用侧共用同一套 Kotlin 实现是刻意的，
+// 两份实现（比如 CI 用 C 版 bsdiff）迟早会在边界上漂移，而漂移的表现是「用户下完补丁装不上」。
+//
+// 参数与用法见 `com.zoneu.app.update.patch.GeneratePatch` 的注释与 `docs/releasing.md`。
+tasks.register<JavaExec>("generatePatch") {
+  group = "release"
+  description = "生成应用内更新补丁与清单（发布侧工具）"
+  dependsOn("compileDebugUnitTestKotlin")
+  mainClass.set("com.zoneu.app.update.patch.GeneratePatch")
+  classpath = configurations.getByName("debugUnitTestRuntimeClasspath")
+  // 补丁生成要在内存里比对两个 150MB 级的包；默认堆太小会在真实 APK 上 OOM。
+  maxHeapSize = "2g"
+}
+
 // Room 导出 schema，供后续迁移比对
 ksp {
   arg("room.schemaLocation", "$projectDir/schemas")

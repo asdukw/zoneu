@@ -132,6 +132,28 @@ test('upload/create failures do not publicly expose a partial release', t => {
   }
 });
 
+test('patch assets ride along with the apk, but internal metadata never does', t => {
+  const f = fixture(t, { exists: false });
+  const patch = `zoneu-0.15.0-to-${tag.slice(1)}-arm64-v8a.patch`;
+  writeFileSync(join(f.artifactDirectory, patch), 'offline fixture patch');
+  writeFileSync(join(f.artifactDirectory, `${patch}.sha256`), `${'d'.repeat(64)}  ${patch}
+`);
+  writeFileSync(join(f.artifactDirectory, 'zoneu-patches.json'), '{"format":1}');
+  f.run();
+  const upload = f.mutations().find(args => args[1] === 'create');
+  for (const name of [patch, `${patch}.sha256`, 'zoneu-patches.json']) {
+    assert.ok(upload.includes(join(f.artifactDirectory, name)), `缺少补丁资产 ${name}`);
+  }
+  assert.ok(!upload.some(value => value.endsWith('release-identity.json')), '内部元数据不该出现在 release 资产里');
+});
+
+test('a zero-byte patch asset blocks publishing instead of shipping a useless download', t => {
+  const f = fixture(t);
+  writeFileSync(join(f.artifactDirectory, `zoneu-0.15.0-to-${tag.slice(1)}-arm64-v8a.patch`), '');
+  assert.throws(f.run, /补丁资产为空/);
+  assert.deepEqual(f.mutations(), []);
+});
+
 test('tag validation failure before or after upload prevents public draft promotion', t => {
   for (const failAt of [1, 2]) {
     const f = fixture(t, { verify: state => { if (state.verifications === failAt) throw new Error('tag moved'); } });

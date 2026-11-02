@@ -17,6 +17,7 @@ import com.zoneu.app.BuildConfig
 import com.zoneu.app.agent.appVersionName
 import com.zoneu.app.ui.components.UpdateProgressBar
 import com.zoneu.app.ui.components.zoneuPageInsets
+import com.zoneu.app.update.UpdateDownloader.Progress
 import com.zoneu.app.update.UpdateManager
 
 /**
@@ -78,6 +79,12 @@ private fun AboutSection() {
           progress = downloading.progress,
           modifier = Modifier.padding(start = 56.dp, end = 16.dp, bottom = 14.dp),
         )
+      } else if (state is UpdateManager.State.Merging) {
+        // 合并阶段没有字节进度：不确定进度条 + 上面那行的文案，别编一个百分比出来。
+        UpdateProgressBar(
+          progress = Progress(0, -1),
+          modifier = Modifier.padding(start = 56.dp, end = 16.dp, bottom = 14.dp),
+        )
       }
     }
     SettingsDivider()
@@ -103,6 +110,9 @@ private fun onUpdateRowClick(context: Context, state: UpdateManager.State) {
 
     is UpdateManager.State.Downloading -> UpdateManager.cancel()
 
+    // 合并阶段点一下没有可做的动作：那是几十秒内结束的一步，取消只会留下半成品。
+    is UpdateManager.State.Merging -> Unit
+
     is UpdateManager.State.Ready -> UpdateManager.install(context)
 
     // 缺授权时 download() 自己会把用户送到系统设置页；授完权再点一次就是接着下。
@@ -124,7 +134,13 @@ private fun updateSubtitle(state: UpdateManager.State): String =
 
     is UpdateManager.State.Available -> "发现新版本 ${state.release.version} —— 点这里下载并安装"
 
-    is UpdateManager.State.Downloading -> "正在下载 —— 点这里取消（已下载的部分会留着）"
+    is UpdateManager.State.Downloading ->
+      when (state.mode) {
+        UpdateManager.Mode.PATCH -> "正在下载补丁 —— 点这里取消（已下载的部分会留着）"
+        UpdateManager.Mode.FULL -> "正在下载 —— 点这里取消（已下载的部分会留着）"
+      }
+
+    is UpdateManager.State.Merging -> "正在合并更新并校验 —— 稍等片刻"
 
     is UpdateManager.State.Ready -> "已下载 ${state.version} 且校验通过 —— 点这里安装"
 
@@ -142,6 +158,7 @@ private fun updateBadge(state: UpdateManager.State): String =
   when (state) {
     is UpdateManager.State.Available -> "可更新"
     is UpdateManager.State.Downloading -> "取消"
+    is UpdateManager.State.Merging -> "合并中"
     is UpdateManager.State.Ready -> "安装"
     is UpdateManager.State.NeedsPermission -> "待授权"
     is UpdateManager.State.Failed -> "失败"
@@ -151,7 +168,7 @@ private fun updateBadge(state: UpdateManager.State): String =
 private fun updateTone(state: UpdateManager.State): BadgeTone =
   when (state) {
     is UpdateManager.State.Available, is UpdateManager.State.Ready -> BadgeTone.Enabled
-    is UpdateManager.State.Downloading -> BadgeTone.Info
+    is UpdateManager.State.Downloading, is UpdateManager.State.Merging -> BadgeTone.Info
     is UpdateManager.State.NeedsPermission, is UpdateManager.State.Failed -> BadgeTone.Disabled
     else -> BadgeTone.Muted
   }

@@ -52,6 +52,23 @@ class AppUpdaterTest {
   }
 
   @Test
+  fun `patch manifest asset is picked up when present`() {
+    val release = parse(SAMPLE_WITH_PATCHES)
+    assertEquals("https://example.test/zoneu-patches.json", release?.patchesUrl)
+    // 补丁清单在不在都不影响 apk/.sha256 的配对：清单缺失只是「这个版本不提供补丁」。
+    assertEquals("$APK_URL.sha256", parse(SAMPLE)?.sha256Url)
+    assertNull(parse(SAMPLE)?.patchesUrl)
+  }
+
+  @Test
+  fun `patch assets are never mistaken for the apk`() {
+    // 清单里带 .patch 资产时，仍然必须选中那个 `.apk`，而不是把补丁当安装包。
+    val release = parse(SAMPLE_WITH_PATCHES)
+    assertEquals(APK_URL, release?.apkUrl)
+    assertTrue(release?.apkUrl?.endsWith(".apk") == true)
+  }
+
+  @Test
   fun `legacy app artifacts are never offered as zoneu updates`() {
     assertNull(parse(SAMPLE.replace("zoneu-", "factotum-")))
     assertNull(parse(SAMPLE.replace("zoneu-", "tappet-")))
@@ -81,6 +98,20 @@ class AppUpdaterTest {
         "html_url": "https://example.test/releases/v0.7.0",
         "assets": [
           {"name": "zoneu-v0.7.0-arm64-v8a.apk", "browser_download_url": "$APK_URL"}
+        ]
+      }
+      """
+
+    val SAMPLE_WITH_PATCHES =
+      """
+      {
+        "tag_name": "v0.7.0",
+        "html_url": "https://example.test/releases/v0.7.0",
+        "assets": [
+          {"name": "zoneu-v0.7.0-arm64-v8a.apk", "browser_download_url": "$APK_URL"},
+          {"name": "zoneu-v0.7.0-arm64-v8a.apk.sha256", "browser_download_url": "$APK_URL.sha256"},
+          {"name": "zoneu-patches.json", "browser_download_url": "https://example.test/zoneu-patches.json"},
+          {"name": "zoneu-0.6.0-to-0.7.0-arm64-v8a.patch", "browser_download_url": "https://example.test/zoneu-0.6.0-to-0.7.0-arm64-v8a.patch"}
         ]
       }
       """

@@ -107,3 +107,25 @@ $env:GRADLE_OPTS = '-Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=7897 -Dhttp.pr
 
 发版前至少跑：门禁三条、`:app:testDebugUnitTest`、`check-sensitive.ps1 -SelfTest` 与
 `-ApkPath <包>`。
+
+### 可复现性门禁（`assemble.yml`）
+
+装配链会把 `dsh-runtime.zip` 与再装一次的结果比 SHA-256，不同即失败。**它不是洁癖，是应用内
+补丁的前提**：补丁只传"变化的部分"，而没变化的部分必须真的没变。实测 v2.1.0 → v2.2.0，
+`dsh-runtime.zip` 内层 25953 个条目里 25945 个内容（CRC）完全相同、只有 mtime 不同，却让
+每次更新多传 63 MiB（整个包 155.9 MiB）。理由与数字见 `openspec/changes/apk-delta-updates/`。
+
+- 写 zip 的地方**只有** `tools/pack-dsh-runtime.ps1`：固定时间戳（1980-01-01 00:00，用本地墙钟
+  构造，避免 .NET 写 extended-timestamp 字段造成"开发机与 UTC 的 CI 不同字节"）、条目按名称
+  ordinal 排序、不写目录条目（App 解压时自己建父目录）。
+- **别改回** `ZipFile::CreateFromDirectory`（写文件 mtime）或 `tar`（Linux 的 GNU tar 写不了 zip）。
+- 本地复现两次装配：
+
+```powershell
+./tools/bundle-dsh.ps1
+(Get-FileHash android/app/src/main/assets/dsh-runtime.zip -Algorithm SHA256).Hash
+./tools/bundle-dsh.ps1
+(Get-FileHash android/app/src/main/assets/dsh-runtime.zip -Algorithm SHA256).Hash   # 必须同上
+```
+
+升级 .NET / 换打包库之后先跑上面两条：压缩级别或时间戳写法一变，哈希就会变。

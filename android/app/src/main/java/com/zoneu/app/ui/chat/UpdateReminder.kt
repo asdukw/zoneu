@@ -19,6 +19,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.zoneu.app.BuildConfig
 import com.zoneu.app.agent.appVersionName
 import com.zoneu.app.ui.components.UpdateProgressBar
+import com.zoneu.app.update.UpdateDownloader
 import com.zoneu.app.update.UpdateManager
 import com.zoneu.app.update.UpdatePreferences
 
@@ -73,6 +74,11 @@ fun UpdateReminder() {
           Spacer(Modifier.height(14.dp))
           UpdateProgressBar(downloading.progress)
         }
+        // 合并阶段没有字节进度，只说明"在做什么"（这里是唯一会出现的不确定进度场景）。
+        if (state is UpdateManager.State.Merging) {
+          Spacer(Modifier.height(14.dp))
+          UpdateProgressBar(UpdateDownloader.Progress(0, -1))
+        }
       }
     },
     confirmButton = {
@@ -96,6 +102,7 @@ fun UpdateReminder() {
         Text(
           when (state) {
             is UpdateManager.State.Downloading -> "后台继续"
+            is UpdateManager.State.Merging -> "后台继续"
             is UpdateManager.State.NeedsPermission -> "稍后"
             else -> "跳过此版本"
           },
@@ -111,7 +118,13 @@ private fun dialogText(state: UpdateManager.State): String =
       "新版本 ${state.release.version}（当前 ${appVersionName()}）。可以在应用内下载并安装；" +
         "也可以先去 设置 → 版本更新 看详情。"
 
-    is UpdateManager.State.Downloading -> "正在下载，签名或哈希对不上会自动中止。"
+    is UpdateManager.State.Downloading ->
+      when (state.mode) {
+        UpdateManager.Mode.PATCH -> "正在下载补丁（只传变化的部分），下完会先在本地合并再校验。"
+        UpdateManager.Mode.FULL -> "正在下载，签名或哈希对不上会自动中止。"
+      }
+
+    is UpdateManager.State.Merging -> "正在合并更新，随后会校验整包与签名。"
 
     is UpdateManager.State.Ready -> "已下载并校验通过，交给系统安装器完成安装。"
 
@@ -128,6 +141,7 @@ private fun confirmLabel(state: UpdateManager.State): String =
   when (state) {
     is UpdateManager.State.Available -> "更新"
     is UpdateManager.State.Downloading -> "取消"
+    is UpdateManager.State.Merging -> "好"
     is UpdateManager.State.Ready -> "安装"
     is UpdateManager.State.NeedsPermission -> "去设置"
     is UpdateManager.State.Failed -> "重试"
@@ -139,6 +153,9 @@ private fun onConfirm(context: android.content.Context, state: UpdateManager.Sta
     is UpdateManager.State.Available -> UpdateManager.download(context)
 
     is UpdateManager.State.Downloading -> UpdateManager.cancel()
+
+    // 合并期间不提供取消：那是几十秒内结束的一步，半途而废只会留下半成品。
+    is UpdateManager.State.Merging -> close()
 
     is UpdateManager.State.Ready -> UpdateManager.install(context)
 

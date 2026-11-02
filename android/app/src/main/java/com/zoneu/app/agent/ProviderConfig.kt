@@ -210,3 +210,9 @@ internal fun String?.nonBlankOrNull(): String? = this?.trim()?.takeIf { it.isNot
 
 /** 构建期版本号，设置页「关于」用；抽出来免得界面直接碰 BuildConfig。 */
 internal fun appVersionName(): String = BuildConfig.VERSION_NAME
+
+/**
+ * 构建期 versionCode。补丁清单按它匹配基线 —— **不用 versionName**：字符串风格可能变，
+ * 而 versionCode 是我们自己单调递增、且 release 里唯一可靠的版本标识。
+ */
+internal fun appVersionCode(): Int = BuildConfig.VERSION_CODE

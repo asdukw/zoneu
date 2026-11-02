@@ -53,7 +53,7 @@
    不是来自 tag**，漏改会打出「tag 叫 `v0.6.0`、装到设备上却报 `0.5.0`」的包；
 2. 写 `docs/releases/<tag>.md` 并更新 `CHANGELOG.md`，**先提交再打 tag** —— `release.yml`
    只读仓库里已有的那份说明文件，没有就退回 `--generate-notes`；
-3. 打 `v*` tag → 出签名 APK，附 `zoneu-<tag>-arm64-v8a.apk` 与 `.sha256`。
+3. 打 `v*` tag → 出签名 APK，附 `zoneu-<tag>-arm64-v8a.apk` 与 `.sha256`，以及补丁与清单（见下面「补丁资产」）。
    build job 会停在 `release` environment 等人工批准；批准后才读签名密钥、出包。
 
 - **手动补发与源码身份**：构建目标用完整 `refs/tags/<tag>` 解析为固定提交，publish 使用同一提交，
@@ -73,6 +73,34 @@
   `gh attestation verify <apk> --repo asdukw/zoneu`。建议在仓库设置里开启 **Immutable
   releases**；开启后资产不可覆盖，重发要先删 release（当前的 `--clobber` 会被拒）。
 - publish job 的 summary 里会写 APK 大小与 SHA-256；`.sha256` 同时作为 release 资产发布。
+
+### 补丁资产（应用内更新）
+
+`release.yml` 在签名出包之后跑 `tools/ci/release-patches.sh`：取窗口内**最近 6 个应用版本**
+（按 `versionCode`，排除 `rg-*` 这类非应用 release）的**已发布** APK，逐个用它们自己的
+`.sha256` 校验，再调 tag 源码里的 `:app:generatePatch` 生成补丁与清单。
+
+```
+release v2.2.0
+  zoneu-v2.2.0-arm64-v8a.apk            <- 整包，永远都在（兜底路径）
+  zoneu-v2.2.0-arm64-v8a.apk.sha256
+  zoneu-patches.json                    <- 清单：格式号 + 目标包哈希/体积 + 每个基线的条目
+  zoneu-<from>-to-<tag>-arm64-v8a.patch       <- 每个基线一个
+  zoneu-<from>-to-<tag>-arm64-v8a.patch.sha256
+```
+
+- **失败不阻断发布**：这一步是 `continue-on-error`。补丁是流量优化，不是发布正确性的一部分；
+  没有补丁的版本设备端全量下载，行为与以前一致。生成了几个、跳过了哪些基线，写在 job summary 里。
+- **基线必须是已发布的字节**：脚本从 release 重新下载旧包并按它的 `.sha256` 校验，不信本地缓存。
+  补丁里记的 `baseSha256` 因此必然等于用户设备上那份 —— 设备端判据 C4 靠的就是它。
+- **每条补丁当场往返验证**：`apply(基线, 补丁)` 的 `sha256` 必须等于目标包，不符的那条**不发布**。
+  这是「用户下完补丁装不上」的唯一结构性防线。
+- **不可变**：补丁与清单随 tag 冻结。**重发同一个 tag 必须重算补丁**（产物字节变了，旧补丁就对不上
+  新的 `baseSha256`）；与 Immutable releases 的规则一致 —— 先删 release 再发。
+- **不要清理窗口内的补丁资产**：它们是「用户停留在旧版本也能只下几 MiB」的唯一手段。
+  每个 release 额外占 24–48 MiB，这是刻意的成本。
+- provenance（`actions/attest-build-provenance`）的 subject 包含 APK、补丁、补丁哈希与清单：
+  会被设备执行或依赖的字节都要有来源证明。
 
 ## 3. 签名材料
 

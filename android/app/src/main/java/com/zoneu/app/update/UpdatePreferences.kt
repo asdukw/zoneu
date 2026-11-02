@@ -15,6 +15,7 @@ import android.content.Context
 object UpdatePreferences {
   private const val PREFS = "zoneu_update"
   private const val KEY_SKIPPED = "skipped_versions"
+  private const val KEY_LAST_INSTALL = "last_install_time"
 
   fun skipped(context: Context): Set<String> =
     prefs(context).getStringSet(KEY_SKIPPED, emptySet()).orEmpty().toSet()
@@ -31,6 +32,18 @@ object UpdatePreferences {
   fun pruneAtOrBelow(context: Context, version: String) {
     val remaining = skipped(context).filter { AppUpdater.isNewerVersion(version, it) }.toSet()
     prefs(context).edit().putStringSet(KEY_SKIPPED, remaining).apply()
+  }
+
+  /**
+   * 上一次「看到了安装生效」的时刻（`PackageInfo.lastUpdateTime` 的水位）。
+   *
+   * 用来判断「更新是不是真的装上了」：装上了 → `lastUpdateTime` 变、水位对不上 → 清掉这次下载的包；
+   * 用户在系统安装器里取消 → 水位不变 → 包留着，再点「安装」还能直接用。
+   */
+  fun installWatermark(context: Context): Long = prefs(context).getLong(KEY_LAST_INSTALL, 0L)
+
+  fun setInstallWatermark(context: Context, value: Long) {
+    prefs(context).edit().putLong(KEY_LAST_INSTALL, value).apply()
   }
 
   private fun prefs(context: Context) =

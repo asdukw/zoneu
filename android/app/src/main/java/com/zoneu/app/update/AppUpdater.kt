@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import androidx.core.content.FileProvider
+import com.zoneu.app.update.patch.PatchManifest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
@@ -57,6 +58,13 @@ object AppUpdater {
     val pageUrl: String,
     val apkUrl: String,
     val sha256Url: String,
+    /**
+     * 补丁清单资产（`zoneu-patches.json`）的下载地址；没有就是「这个版本不提供补丁」。
+     *
+     * 它**不是**信任源：清单只能让设备走全量或多下一次几 MiB 的补丁，最终判据仍是
+     * 产物必须对上整包 `sha256` 与签名证书。见 `PatchManifest` 的注释。
+     */
+    val patchesUrl: String? = null,
   )
 
   /**
@@ -122,6 +130,7 @@ object AppUpdater {
     val shaName = "$apkName.sha256"
     val apkUrl = urls[apkName]?.takeIf { it.isNotBlank() } ?: return null
     val shaUrl = urls[shaName]?.takeIf { it.isNotBlank() } ?: return null
+    val patchesUrl = urls[PatchManifest.ASSET_NAME]?.takeIf { it.isNotBlank() }
     return Release(
       tag = tag,
       version = tag.removePrefix("v"),
@@ -129,6 +138,7 @@ object AppUpdater {
       // URL 里的 tag 是本仓库自己的 release，不是用户输入；不拼到本地路径上。
       apkUrl = apkUrl,
       sha256Url = shaUrl,
+      patchesUrl = patchesUrl,
     )
   }
 

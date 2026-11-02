@@ -1,10 +1,31 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { requireTag, verifyRemoteTag } from './release-source.mjs';
 import { readIdentity } from './release-identity.mjs';
+
+/**
+ * 补丁资产（可选）。白名单而不是「目录里除 apk 之外都发」：artifact 目录里还有
+ * `release-identity.json` 这类内部元数据，它们不该出现在 release 页面上。
+ *
+ * 没有补丁也能发版（首个带补丁能力的版本、老 tag 补发、补丁生成失败都属于没有补丁）。
+ */
+const PATCH_ASSET = /^(?:zoneu-patches\.json|zoneu-[0-9][^/]*-to-[0-9][^/]*-arm64-v8a\.patch(?:\.sha256)?)$/;
+
+function patchAssets(artifactDirectory) {
+  return readdirSync(artifactDirectory)
+    .filter(name => PATCH_ASSET.test(name))
+    .sort()
+    .map(name => {
+      const file = join(artifactDirectory, name);
+      const stat = statSync(file);
+      // 0 字节的补丁发出去只会让设备多下一次再回退全量 —— 宁可不发。
+      if (!stat.isFile() || stat.size === 0) throw new Error(`补丁资产为空：${name}`);
+      return file;
+    });
+}
 
 function runCli(args) {
   return spawnSync('gh', args, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
@@ -25,6 +46,7 @@ export function publish({ sourceDirectory, artifactDirectory, env = process.env,
     if (result.error || result.status !== 0) throw new Error(`gh ${args.slice(0, 2).join(' ')} 失败，未继续公开发布`);
     return String(result.stdout);
   };
+  const patches = patchAssets(artifactDirectory);
   verifyTag(sourceDirectory, env.TAG, env.SOURCE_SHA);
   const root = `repos/${env.GH_REPO}`;
   // Only an accessible repository plus a complete authenticated list can prove
@@ -40,10 +62,10 @@ export function publish({ sourceDirectory, artifactDirectory, env = process.env,
   if (existing.length > 1) throw new Error('目标 tag 有多个 release，拒绝歧义发布');
   const notes = join(sourceDirectory, 'docs/releases', `${env.TAG}.md`);
   if (existing.length) {
-    gh(['release', 'upload', env.TAG, '--repo', env.GH_REPO, '--clobber', apk, checksum]);
+    gh(['release', 'upload', env.TAG, '--repo', env.GH_REPO, '--clobber', apk, checksum, ...patches]);
   } else {
     const noteArgs = existsSync(notes) ? ['--notes-file', notes] : ['--generate-notes'];
-    gh(['release', 'create', env.TAG, '--repo', env.GH_REPO, '--verify-tag', '--draft', '--title', env.TAG, ...noteArgs, apk, checksum]);
+    gh(['release', 'create', env.TAG, '--repo', env.GH_REPO, '--verify-tag', '--draft', '--title', env.TAG, ...noteArgs, apk, checksum, ...patches]);
   }
   // Recheck after uploads, immediately before promoting the draft. Never create tags.
   verifyTag(sourceDirectory, env.TAG, env.SOURCE_SHA);
