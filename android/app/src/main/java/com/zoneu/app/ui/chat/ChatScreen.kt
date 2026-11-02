@@ -66,6 +66,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
@@ -2136,7 +2138,7 @@ private fun UserBubble(content: String) {
 
 /** 「删这轮」「从此处重来」都是永久删除：先确认，再做。 */
 private enum class ConfirmingTurn(val title: String, val body: String) {
-  Delete("删除这一轮？", "这一轮回复和它的工具调用会一起删除，不能撤销。"),
+  Delete("删除这条回复？", "这条回复和它的工具调用会一起删除，不能撤销。"),
   RetryFrom("从此处重来？", "这句话之后的所有消息都会被删除，然后重新回答，不能撤销。"),
 }
 
@@ -2257,15 +2259,16 @@ private fun AssistantActions(
         }
         if (message.content.isNotBlank()) {
           TextAction(text = "重写", onClick = actions.regenerate)
-          // 支线：复制到此为止的历史到新会话。放在「重写」旁边是因为两者回答的是同一个问题
-          // （「这句不满意」），只是重写保留候选、支线保留整条走法。
-          TextAction(text = "开新支线", onClick = { actions.fork(message.id) })
         }
-        TextAction(text = "删这轮", onClick = { onConfirm(ConfirmingTurn.Delete) })
+        TurnOverflow(
+          items = listOf(TurnMenuItem("删除这条回复", destructive = true) { onConfirm(ConfirmingTurn.Delete) }),
+        )
       } else {
         // 中间那几条不给「重写」：重写的是这一轮，而这一轮后面还接着别人说的话，
         // 删了它会让后面悬空。给的是「从此处重来」—— 连同后面的一起丢掉，回到这句话重新回答。
         TextAction(text = "从此处重来", onClick = { onConfirm(ConfirmingTurn.RetryFrom) })
+        // 支线只在中间那条有意义：最后一条已经是结尾，再复制一遍等于把整段会话另存一份。
+        TurnOverflow(items = listOf(TurnMenuItem("从这条另开一段") { actions.fork(message.id) }))
       }
     }
   }
@@ -2328,11 +2331,48 @@ private fun SpeakAction(messageId: String, markdown: String, speaking: Boolean) 
   }
 }
 
+private data class TurnMenuItem(val label: String, val destructive: Boolean = false, val onClick: () -> Unit)
+
+/** 次要操作收进菜单：一行放不下，也不该让「删除」跟「重写」一样显眼。 */
+@Composable
+private fun TurnOverflow(items: List<TurnMenuItem>) {
+  var open by remember { mutableStateOf(false) }
+  Box {
+    Box(
+      modifier =
+        Modifier.size(48.dp)
+          .clip(CircleShape)
+          .clickable { open = true }
+          .semantics { contentDescription = "更多操作" },
+      contentAlignment = Alignment.Center,
+    ) {
+      Glyph(GlyphKind.More, Modifier.size(18.dp), MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+      items.forEach { item ->
+        DropdownMenuItem(
+          text = {
+            Text(
+              text = item.label,
+              style = MaterialTheme.typography.bodyMedium,
+              color =
+                if (item.destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+            )
+          },
+          onClick = {
+            open = false
+            item.onClick()
+          },
+        )
+      }
+    }
+  }
+}
+
 /**
- * 纯文字操作（重写 / 删这轮）。
+ * 纯文字操作（重写 / 从此处重来 / 续写）。
  *
- * 不给图标：这两个动作不常用，且「删」带破坏性 —— 图标在这么小的一行里认不出来，
- * 误触比多点一步更糟。
+ * 不给图标：这些动作不常用，图标在这么小的一行里认不出来，误触比多点一步更糟。
  */
 @Composable
 private fun TextAction(text: String, onClick: () -> Unit) {
