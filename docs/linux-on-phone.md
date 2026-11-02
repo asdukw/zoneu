@@ -16,7 +16,7 @@ agent 能在手机的**文件系统**上干活：APK 里带一份 Debian rootfs�
 
 | 产物 | 来源（摘要钉死在脚本里） |
 |---|---|
-| `jniLibs/arm64-v8a/libproot.so` | Termux `proot 5.1.107.101` 的 `usr/bin/proot`（改名） |
+| `jniLibs/arm64-v8a/libproot.so` | Termux `proot 5.1.107.102` 的 `usr/bin/proot`（改名） |
 | `jniLibs/arm64-v8a/libprootloader.so` | 同一包的 `usr/libexec/proot/loader` |
 | `jniLibs/arm64-v8a/libtalloc.so` / `libandroidshmem.so` | `libtalloc 2.5.0` / `libandroid-shmem 0.7` |
 | `assets/proot-rootfs.bin` | Docker Hub `debian:bookworm-slim` linux/arm64 的单一层（26.8 MiB） |

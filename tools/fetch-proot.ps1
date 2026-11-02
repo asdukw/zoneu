@@ -1,6 +1,6 @@
 param(
   # 版本与摘要都钉死：这三个 deb 来自 Termux 官方仓库，改版本必须先重跑一遍设备验证。
-  [string]$ProotVersion = "5.1.107.101",
+  [string]$ProotVersion = "5.1.107.102",
   [string]$TallocVersion = "2.5.0",
   [string]$ShmemVersion = "0.7",
   # Debian bookworm-slim（linux/arm64）的单一层；摘要来自 index manifest，不是 tag。
@@ -35,7 +35,7 @@ $rootfsPath = Join-Path $cacheDir "proot-rootfs.bin"
 $rootfsAsset = Join-Path $assetDir "proot-rootfs.bin"
 
 $debs = @(
-  @{ Name = "proot_${ProotVersion}_aarch64.deb"; Url = "https://packages.termux.dev/apt/termux-main/pool/main/p/proot/proot_${ProotVersion}_aarch64.deb"; Sha256 = "a28355e9be257e1f87f4e9294b3118470d4fd7a5442fed8b278f4443c83407d7" },
+  @{ Name = "proot_${ProotVersion}_aarch64.deb"; Url = "https://packages.termux.dev/apt/termux-main/pool/main/p/proot/proot_${ProotVersion}_aarch64.deb"; Sha256 = "10a394b585c2fc2b2c8502544f4e5f1be581dc8bfff79e8ba62f16207423e030" },
   @{ Name = "libtalloc_${TallocVersion}_aarch64.deb"; Url = "https://packages.termux.dev/apt/termux-main/pool/main/libt/libtalloc/libtalloc_${TallocVersion}_aarch64.deb"; Sha256 = "556591f43bb773ad8777e1a29522640866a55f95dab71914418b94a8c58ad5a7" },
   @{ Name = "libandroid-shmem_${ShmemVersion}_aarch64.deb"; Url = "https://packages.termux.dev/apt/termux-main/pool/main/liba/libandroid-shmem/libandroid-shmem_${ShmemVersion}_aarch64.deb"; Sha256 = "0da3a24d558b93c92bcf8d611e0826a99ff96e396b148e6cdf33b47c47c57ff6" }
 )
