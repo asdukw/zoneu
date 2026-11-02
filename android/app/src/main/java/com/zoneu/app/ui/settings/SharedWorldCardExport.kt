@@ -42,20 +42,28 @@ internal fun SharedWorldCardExport(card: CharacterCard) {
       }
     }
   }
-  TextButton(enabled = !ui.busy, onClick = {
-    ui.run {
-      ui.refresh()
-      selected = emptyList()
-      open = true
+  SettingsGroup {
+    SettingsRow(
+      glyph = GlyphKind.Hub,
+      title = "连共享世界设定一起导出",
+      subtitle = "把选中的共享世界书冻结进这一次导出",
+      enabled = !ui.busy,
+      onClick = {
+        ui.run {
+          ui.refresh()
+          selected = emptyList()
+          open = true
+        }
+      },
+    ) {
+      ChevronRight()
     }
-  }) {
-    Text("选择共享修订并嵌入卡片导出")
   }
   ui.message?.let { Text(it) }
   if (open) {
-    AlertDialog(onDismissRequest = { open = false }, title = { Text("冻结共享世界书") }, text = {
+    AlertDialog(onDismissRequest = { open = false }, title = { Text("选共享世界设定") }, text = {
       Column(Modifier.verticalScroll(rememberScrollState())) {
-        Text("仅本次导出复制所选修订；不会创建绑定或改变本地卡。资源只保留引用，不下载。")
+        Text("只复制这一次导出，不新建绑定，也不改动本地卡。图片等资源只保留引用。")
         ui.books.forEach { book ->
           Row {
             Checkbox(

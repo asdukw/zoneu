@@ -4,8 +4,13 @@ import android.content.Context
 import android.graphics.BitmapFactory
 import android.widget.Toast
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,20 +23,26 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,6 +56,8 @@ import com.zoneu.app.agent.CharacterPins
 import com.zoneu.app.agent.CharacterStore
 import com.zoneu.app.agent.SecondaryLogic
 import com.zoneu.app.agent.WorldEntry
+import com.zoneu.app.theme.ZoneuSpacing
+import com.zoneu.app.theme.zoneuShapes
 import com.zoneu.app.ui.chat.LocalWorldNavigation
 import com.zoneu.app.ui.components.zoneuPageInsets
 import kotlinx.coroutines.Dispatchers
@@ -213,69 +226,106 @@ internal fun CharacterDetailScreen(
 ) {
   Surface(modifier = modifier.fillMaxSize(), color = settingsPageColor()) {
     Column(Modifier.fillMaxSize().zoneuPageInsets()) {
-      SettingsHeader(title = card?.name ?: "角色", onBack = onBack)
+      // 标题留给下面的大标题区：顶栏再写一遍名字，同一行信息就出现了两次。
+      SettingsHeader(title = "", onBack = onBack)
       if (card == null) {
         MissingCard()
         return@Column
       }
-      Column(
-        modifier =
-          Modifier.fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 28.dp),
-      ) {
-        CardHero(card = card)
-        Spacer(Modifier.height(12.dp))
-        ActionRow(
-          pinned = pinned,
-          applying = applying,
-          editable = card.imported,
-          onStart = { onStart(card.id) },
-          onTogglePin = onTogglePin,
-          onEdit = onEdit,
-        )
-        // 出口放在「开始对话」正下方：导进来的卡改过之后，用户第一个想知道的就是「怎么带走」
-        CardTransferRow(card = card, onCardChanged = onCardChanged)
-
-        ProseSection("人设", card.description)
-        ProseSection("性格与说话方式", card.personality)
-        ProseSection("开场场景", card.scenario)
-        ProseSection("开场白", card.firstMes)
-        GreetingSection(card)
-
-        val worldNavigation = LocalWorldNavigation.current
-        TextButton(onClick = { worldNavigation.openBindings("character", card.id) }) { Text("管理默认共享世界书") }
-        Text("默认绑定只用于未来新会话。下面是卡内设定，不等于共享世界书。", style = MaterialTheme.typography.bodySmall)
-        WorldSection(card)
-        SharedWorldCardExport(card)
-
-        MemoryCard(memory)
-        AboutCard(card)
-        CardCompatibilityReport(card)
-
-        DeleteCardSection(card, onDelete)
-      }
+      CharacterBody(
+        card = card,
+        pinned = pinned,
+        applying = applying,
+        memory = memory,
+        onStart = { onStart(card.id) },
+        onTogglePin = onTogglePin,
+        onEdit = onEdit,
+        onCardChanged = onCardChanged,
+        onDelete = onDelete,
+      )
     }
+  }
+}
+
+/**
+ * 从上到下的阅读顺序：这张卡是谁 → 开始演 → 它写了什么。
+ *
+ * 正文（人设 / 开场）默认只留五行：详情页是让人判断「要不要开这一场」的，
+ * 不是阅读器；想读完点「展开全部」。导出、记忆、兼容报告这些低频项沉到底部。
+ */
+@Composable
+private fun CharacterBody(
+  card: CharacterCard,
+  pinned: Boolean,
+  applying: Boolean,
+  memory: String,
+  onStart: () -> Unit,
+  onTogglePin: () -> Unit,
+  onEdit: () -> Unit,
+  onCardChanged: (CharacterCard) -> Unit,
+  onDelete: () -> Unit,
+) {
+  Column(
+    modifier =
+      Modifier.fillMaxSize()
+        .verticalScroll(rememberScrollState())
+        .padding(horizontal = ZoneuSpacing.lg)
+        .padding(bottom = ZoneuSpacing.xxl),
+  ) {
+    CharacterHero(card)
+    Spacer(Modifier.height(ZoneuSpacing.xl))
+    CharacterActions(
+      pinned = pinned,
+      applying = applying,
+      editable = card.imported,
+      onStart = onStart,
+      onTogglePin = onTogglePin,
+      onEdit = onEdit,
+    )
+
+    ProseSection("人设", card.description)
+    ProseSection("性格与说话方式", card.personality)
+    ProseSection("开场场景", card.scenario)
+    ProseSection("开场白", card.firstMes)
+    GreetingSection(card)
+    WorldSection(card)
+
+    MemoryCard(memory)
+    SectionLabel("分享与备份")
+    CardTransferGroup(card = card, onCardChanged = onCardChanged)
+    Spacer(Modifier.height(ZoneuSpacing.sm))
+    SharedWorldCardExport(card)
+
+    AboutCard(card)
+    Spacer(Modifier.height(ZoneuSpacing.sm))
+    CardCompatibilityReport(card)
+    DeleteCardSection(card, onDelete)
   }
 }
 
 /** 导入卡才可删；记忆与世界书绑定会一起消失，所以点击后先确认。 */
 @Composable
 private fun DeleteCardSection(card: CharacterCard, onDelete: () -> Unit) {
-  var confirming by remember { mutableStateOf(false) }
   if (!card.imported) return
-  Spacer(Modifier.height(16.dp))
-  TextButton(onClick = { confirming = true }) {
-    Text("删除这张卡", color = MaterialTheme.colorScheme.error)
+  var confirming by remember { mutableStateOf(false) }
+  Spacer(Modifier.height(ZoneuSpacing.xl))
+  SettingsGroup {
+    Column(
+      modifier = Modifier.fillMaxWidth().clickable { confirming = true }.padding(16.dp),
+    ) {
+      Text(
+        text = "删除这张卡",
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.error,
+      )
+      Spacer(Modifier.height(ZoneuSpacing.xxs))
+      Text(
+        text = "角色记忆与共享世界书绑定会一起删除；聊过的会话会保留。此操作无法撤销。",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
   }
-  Text(
-    text = "删卡会同时删除角色记忆与默认共享世界书绑定；已经聊过的会话会保留，" +
-      "只是标成「已删除的角色」。此操作无法撤销。",
-    style = MaterialTheme.typography.bodySmall,
-    color = MaterialTheme.colorScheme.onSurfaceVariant,
-    modifier = Modifier.padding(horizontal = 4.dp),
-  )
   if (confirming) {
     ConfirmDeleteCardDialog(
       name = card.name,
@@ -289,31 +339,42 @@ private fun DeleteCardSection(card: CharacterCard, onDelete: () -> Unit) {
 }
 
 /**
- * 世界设定只读列表：常驻的排前面（它们每轮都在，是这张卡的「底座」）。
+ * 世界设定：上面一行是「额外补的」，下面只读列出卡里自带的。
  *
- * 每条只显示前 160 字 —— 详情页是让人判断「这张卡在演什么」的，不是阅读器；
- * 要改去编辑页。
+ * 常驻的排前面（它们每轮都在，是这张卡的「底座」）。每条只显示前 160 字 ——
+ * 详情页是让人判断「这张卡在演什么」的，不是阅读器；要改去编辑页。
  */
 @Composable
 private fun WorldSection(card: CharacterCard) {
-  if (card.world.isEmpty()) return
-  SectionLabel("世界设定 · ${card.world.size} 条")
+  val worldNavigation = LocalWorldNavigation.current
+  SectionLabel("世界设定")
   SettingsGroup {
-    Column(Modifier.padding(16.dp)) {
-      card.world
-        .sortedByDescending { it.constant }
-        .forEach { entry ->
-          Text(
-            text = entryLabel(entry),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-          )
-          Text(
-            text = entry.content.take(160) + if (entry.content.length > 160) "…" else "",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(bottom = 10.dp),
-          )
-        }
+    SettingsRow(
+      glyph = GlyphKind.Book,
+      title = "共享世界书",
+      subtitle = "在卡自带的设定之外，再补一份给角色看",
+      onClick = { worldNavigation.openBindings("character", card.id) },
+    ) {
+      ChevronRight()
+    }
+    if (card.world.isNotEmpty()) {
+      SettingsDivider()
+      Column(Modifier.padding(16.dp)) {
+        card.world
+          .sortedByDescending { it.constant }
+          .forEach { entry ->
+            Text(
+              text = entryLabel(entry),
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+              text = entry.content.take(160) + if (entry.content.length > 160) "…" else "",
+              style = MaterialTheme.typography.bodySmall,
+              modifier = Modifier.padding(bottom = 10.dp),
+            )
+          }
+      }
     }
   }
 }
@@ -419,7 +480,6 @@ private fun AboutCard(card: CharacterCard) {
       Detail("来源", if (card.imported) "导入的卡（存在应用私有目录）" else "内置卡")
       if (card.creator.isNotBlank()) Detail("作者", card.creator)
       if (card.license.isNotBlank()) Detail("许可", card.license)
-      if (card.tags.isNotEmpty()) Detail("标签", card.tags.joinToString(" · "))
       Detail(
         "运行边界",
         "默认不使用卡内的系统提示词、历史指令和示例对话；可在编辑角色的高级设置中开启。" +
@@ -429,50 +489,100 @@ private fun AboutCard(card: CharacterCard) {
   }
 }
 
+/**
+ * 页头：头像 + 名字 + 一句话简介 + 标签。
+ *
+ * 不套分组卡片 —— 这一块就是页面本身，再裹一层白底只会把「谁」推得更远。
+ * 标签做成中性色药丸：整行主色文字会把名字压掉，也读不出层级。
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CardHero(card: CharacterCard) {
-  val context = LocalContext.current
-  val avatar = remember(card.id) {
-    CharacterStore.avatarFile(context, card.id)?.let { BitmapFactory.decodeFile(it.path)?.asImageBitmap() }
-  }
-  SettingsGroup {
-    Row(
-      modifier = Modifier.fillMaxWidth().padding(18.dp),
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      if (avatar != null) {
-        Image(
-          bitmap = avatar,
-          contentDescription = card.name,
-          modifier = Modifier.size(88.dp),
-        )
-        Spacer(Modifier.width(14.dp))
-      }
+private fun CharacterHero(card: CharacterCard) {
+  Column(Modifier.fillMaxWidth()) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      CharacterAvatar(card)
+      Spacer(Modifier.width(ZoneuSpacing.lg))
       Column(Modifier.weight(1f)) {
-        Text(card.name, style = MaterialTheme.typography.headlineSmallEmphasized)
+        Text(
+          text = card.name,
+          style = MaterialTheme.typography.headlineMediumEmphasized,
+          maxLines = 2,
+          overflow = TextOverflow.Ellipsis,
+        )
         if (card.tagline.isNotBlank()) {
-          Spacer(Modifier.height(6.dp))
+          Spacer(Modifier.height(ZoneuSpacing.xs))
           Text(
             text = card.tagline,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
           )
         }
-        if (card.tags.isNotEmpty()) {
-          Spacer(Modifier.height(8.dp))
-          Text(
-            text = card.tags.joinToString("  ·  "),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
-          )
-        }
+      }
+    }
+    if (card.tags.isNotEmpty()) {
+      Spacer(Modifier.height(ZoneuSpacing.lg))
+      FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(ZoneuSpacing.sm),
+        verticalArrangement = Arrangement.spacedBy(ZoneuSpacing.sm),
+      ) {
+        card.tags.forEach { TagPill(it) }
       }
     }
   }
 }
 
 @Composable
-private fun ActionRow(
+private fun CharacterAvatar(card: CharacterCard) {
+  val context = LocalContext.current
+  val avatar = remember(card.id) {
+    CharacterStore.avatarFile(context, card.id)?.let { BitmapFactory.decodeFile(it.path)?.asImageBitmap() }
+  }
+  if (avatar != null) {
+    Image(
+      bitmap = avatar,
+      contentDescription = card.name,
+      contentScale = ContentScale.Crop,
+      modifier = Modifier.size(heroAvatarSize).clip(MaterialTheme.zoneuShapes.hero),
+    )
+    return
+  }
+  Box(
+    modifier =
+      Modifier.size(heroAvatarSize)
+        .clip(MaterialTheme.zoneuShapes.hero)
+        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+    contentAlignment = Alignment.Center,
+  ) {
+    Text(
+      text = card.name.take(1),
+      style = MaterialTheme.typography.headlineMediumEmphasized,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+  }
+}
+
+@Composable
+private fun TagPill(text: String) {
+  Text(
+    text = text,
+    style = MaterialTheme.typography.labelMedium,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    modifier =
+      Modifier
+        .clip(MaterialTheme.zoneuShapes.pill)
+        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+        .padding(horizontal = 10.dp, vertical = 4.dp),
+  )
+}
+
+/**
+ * 主操作与次操作分成两层：一场扮演只有「开始对话」是目的地，收藏与编辑是顺手做的。
+ * 两个等宽胶囊按钮而不是把四个按钮塞进一行 —— 中文标签在窄屏上会一个词一行地折开。
+ */
+@Composable
+private fun CharacterActions(
   pinned: Boolean,
   applying: Boolean,
   editable: Boolean,
@@ -480,31 +590,81 @@ private fun ActionRow(
   onTogglePin: () -> Unit,
   onEdit: () -> Unit,
 ) {
-  Column(Modifier.fillMaxWidth()) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-      Button(onClick = onStart, enabled = !applying, modifier = Modifier.weight(1f)) {
-        Text(if (applying) "正在准备…" else "开始对话")
+  Button(
+    onClick = onStart,
+    enabled = !applying,
+    shape = MaterialTheme.zoneuShapes.pill,
+    modifier = Modifier.fillMaxWidth().height(52.dp),
+  ) {
+    Text(if (applying) "正在准备…" else "开始对话", style = MaterialTheme.typography.titleSmall)
+  }
+  Spacer(Modifier.height(ZoneuSpacing.sm))
+  Row(horizontalArrangement = Arrangement.spacedBy(ZoneuSpacing.sm)) {
+    val secondary = Modifier.weight(1f).height(44.dp)
+    if (pinned) {
+      FilledTonalButton(onClick = onTogglePin, shape = MaterialTheme.zoneuShapes.pill, modifier = secondary) {
+        Text("已收藏")
       }
-      Spacer(Modifier.width(8.dp))
-      TextButton(onClick = onTogglePin) { Text(if (pinned) "取消收藏" else "收藏置顶") }
+    } else {
+      OutlinedButton(onClick = onTogglePin, shape = MaterialTheme.zoneuShapes.pill, modifier = secondary) {
+        Text("收藏")
+      }
     }
     // 内置卡的正文在 assets 里，改了会被下次打包覆盖 —— 只有导入/新建的卡能改。
     if (editable) {
-      TextButton(onClick = onEdit, modifier = Modifier.align(Alignment.End)) { Text("编辑文案") }
+      OutlinedButton(onClick = onEdit, shape = MaterialTheme.zoneuShapes.pill, modifier = secondary) {
+        Text("编辑")
+      }
     }
   }
 }
 
+/**
+ * 一段长正文：默认五行，点一下展开。
+ *
+ * 人设动辄几千字，整段铺开会把开场白、世界设定全挤到几屏之外；用 `hasVisualOverflow`
+ * 判断「这段真的被截了」才显示展开，短文本不会多出一行没用的按钮。
+ */
 @Composable
 private fun ProseSection(title: String, body: String) {
   if (body.isBlank()) return
+  val text = remember(body) { body.trim().replace("{{char}}", "角色").replace("{{user}}", "你") }
+  var expanded by rememberSaveable(title, text) { mutableStateOf(false) }
+  var truncated by remember(title, text) { mutableStateOf(false) }
   SectionLabel(title)
   SettingsGroup {
-    Text(
-      text = body.trim().replace("{{char}}", "角色").replace("{{user}}", "你"),
-      style = MaterialTheme.typography.bodyMedium,
-      modifier = Modifier.fillMaxWidth().padding(16.dp),
-    )
+    Column(
+      modifier =
+        Modifier
+          .fillMaxWidth()
+          .then(if (truncated) Modifier.clickable { expanded = !expanded } else Modifier)
+          .padding(16.dp),
+    ) {
+      Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        maxLines = if (expanded) Int.MAX_VALUE else PROSE_COLLAPSED_LINES,
+        overflow = TextOverflow.Ellipsis,
+        onTextLayout = { if (!expanded) truncated = it.hasVisualOverflow },
+      )
+      if (truncated) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          modifier = Modifier.padding(top = ZoneuSpacing.sm),
+        ) {
+          Text(
+            text = if (expanded) "收起" else "展开全部",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+          )
+          Glyph(
+            kind = GlyphKind.Back,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(14.dp).padding(start = 2.dp).rotate(if (expanded) 90f else -90f),
+          )
+        }
+      }
+    }
   }
 }
 
@@ -536,3 +696,9 @@ private fun MissingCard() {
     )
   }
 }
+
+/** 页头头像尺寸：比正文行高出一大截，才压得住右边的名字与标签。 */
+private val heroAvatarSize = 96.dp
+
+/** 正文折叠时保留的行数：够看出文风，又不至于把后面的区块推走。 */
+private const val PROSE_COLLAPSED_LINES = 5

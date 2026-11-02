@@ -23,7 +23,16 @@ import com.zoneu.app.agent.compatibilityNotes
 @Composable
 internal fun CardCompatibilityReport(card: CharacterCard) {
   var open by remember(card.id) { mutableStateOf(false) }
-  TextButton(onClick = { open = true }) { Text("导入兼容报告") }
+  SettingsGroup {
+    SettingsRow(
+      glyph = GlyphKind.Info,
+      title = "导入兼容报告",
+      subtitle = "看看导入时哪些字段被保留或跳过",
+      onClick = { open = true },
+    ) {
+      ChevronRight()
+    }
+  }
   if (open) {
     AlertDialog(
       onDismissRequest = { open = false },

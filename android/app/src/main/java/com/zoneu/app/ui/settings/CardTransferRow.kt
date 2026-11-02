@@ -5,16 +5,10 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import com.zoneu.app.agent.CardExporter
 import com.zoneu.app.agent.CardInput
 import com.zoneu.app.agent.CharacterCard
@@ -31,11 +25,14 @@ import kotlinx.coroutines.withContext
  * 导出写 v3 卡（含世界书与备用开场白），也可以只导世界书那一截 —— 备份到别的工具时
  * 只要世界书的场合更多。
  *
+ * 用设置行而不是一行并排的文字按钮：四个中文标签在窄屏上会折成一个词一行，
+ * 也让「导出」和「导入」看起来同样重要。
+ *
  * 导入世界书只对用户自己导入的卡开放：内置卡是随包发布的，改了就与包里的版本不一致，
  * 而且没有「恢复内置版本」的入口。
  */
 @Composable
-internal fun CardTransferRow(
+internal fun CardTransferGroup(
   card: CharacterCard,
   onCardChanged: (CharacterCard) -> Unit,
   modifier: Modifier = Modifier,
@@ -67,52 +64,89 @@ internal fun CardTransferRow(
         toast(context, if (ok) "已导出 CHARX（不含嵌入式资产）" else "导出失败：写不进这个位置")
       }
     }
-  val importWorld =
-    rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-      val target = uri ?: return@rememberLauncherForActivityResult
-      scope.launch {
-        val text = readText(context, target)
-        val saved = runCatching {
-          withContext(Dispatchers.IO) {
-            CharacterStore.updateImported(context, card.id, card.storageRevision.orEmpty()) { current ->
-              WorldBookIo.appendText(current, text ?: error("读不到文件，或文件超过 32 MiB 上限"))
-            }
-          }
-        }.getOrElse {
-          toast(context, "世界书导入未确认：卡片可能已改变，请重新读取。")
-          return@launch
-        }
-        onCardChanged(saved.card)
-        val added = saved.card.world.size - card.world.size
-        val message = if (saved.revision == card.storageRevision) {
-          "这份世界书已导入，未修改现有条目"
-        } else {
-          "新增 $added 条运行设定；兼容报告见角色详情"
-        }
-        toast(context, message)
-      }
-    }
+  val importWorld = rememberWorldImport(card, onCardChanged)
 
-  Row(
-    modifier = modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.spacedBy(4.dp),
-  ) {
-    TextButton(onClick = { exportCard.launch(CardExporter.fileName(card)) }) { Text("导出卡片") }
-    TextButton(onClick = { exportCharx.launch(CardExporter.charxFileName(card)) }) { Text("导出 CHARX") }
-    TextButton(onClick = { exportWorld.launch(CardExporter.fileName(card).replace(".json", "-世界书.json")) }) {
-      Text("导出世界书")
+  SettingsGroup(modifier) {
+    SettingsRow(
+      glyph = GlyphKind.Box,
+      title = "导出角色卡",
+      subtitle = "完整卡文件，含世界设定与开场白",
+      onClick = { exportCard.launch(CardExporter.fileName(card)) },
+    ) {
+      ChevronRight()
+    }
+    SettingsDivider()
+    SettingsRow(
+      glyph = GlyphKind.Hub,
+      title = "导出为 CHARX",
+      subtitle = "给支持 CHARX 的客户端用",
+      onClick = { exportCharx.launch(CardExporter.charxFileName(card)) },
+    ) {
+      ChevronRight()
+    }
+    SettingsDivider()
+    SettingsRow(
+      glyph = GlyphKind.Book,
+      title = "只导出世界设定",
+      subtitle = "不带人设与开场白",
+      onClick = { exportWorld.launch(CardExporter.fileName(card).replace(".json", "-世界书.json")) },
+    ) {
+      ChevronRight()
     }
     if (card.imported) {
-      TextButton(
-        onClick = {
-          importWorld.launch(
-            arrayOf("application/json", "text/plain", "application/octet-stream"),
-          )
-        },
+      SettingsDivider()
+      SettingsRow(
+        glyph = GlyphKind.Plus,
+        title = "导入世界设定",
+        subtitle = "把另一份世界书追加到这张卡",
+        onClick = { importWorld() },
       ) {
-        Text("导入世界书")
+        ChevronRight()
       }
     }
+  }
+}
+
+/**
+ * 「导入世界设定」的启动器：读文件 → 追加到这张卡的卡内设定 → 把结果写回页面。
+ *
+ * 单独成一支只是为了让 [CardTransferGroup] 留在 detekt 的方法长度阈值内。
+ */
+@Composable
+private fun rememberWorldImport(
+  card: CharacterCard,
+  onCardChanged: (CharacterCard) -> Unit,
+): () -> Unit {
+  val context = LocalContext.current
+  val scope = rememberCoroutineScope()
+  val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val target = uri ?: return@rememberLauncherForActivityResult
+    scope.launch {
+      val text = readText(context, target)
+      val saved = runCatching {
+        withContext(Dispatchers.IO) {
+          CharacterStore.updateImported(context, card.id, card.storageRevision.orEmpty()) { current ->
+            WorldBookIo.appendText(current, text ?: error("读不到文件，或文件超过 32 MiB 上限"))
+          }
+        }
+      }.getOrElse {
+        toast(context, "世界书导入未确认：卡片可能已改变，请重新读取。")
+        return@launch
+      }
+      onCardChanged(saved.card)
+      val added = saved.card.world.size - card.world.size
+      val message = if (saved.revision == card.storageRevision) {
+        "这份世界书已导入，未修改现有条目"
+      } else {
+        "新增 $added 条运行设定；兼容报告见角色详情"
+      }
+      toast(context, message)
+    }
+  }
+  return {
+    launcher.launch(
+      arrayOf("application/json", "text/plain", "application/octet-stream"),
+    )
   }
 }
 
