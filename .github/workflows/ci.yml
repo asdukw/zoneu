@@ -10,6 +10,7 @@ on:
   push:
     branches: [master]
   pull_request:
+  merge_group:
   workflow_dispatch:
 
 # 同一分支连推时取消上一次：既省 runner，也让「最新一次是否绿」没有歧义
@@ -23,7 +24,8 @@ permissions:
 jobs:
   changes:
     name: 变更范围（代码 / 文档）
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     outputs:
       code: ${{ steps.filter.outputs.code }}
     steps:
@@ -37,37 +39,26 @@ jobs:
       - id: filter
         name: 判断是否只有文档
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
         run: node tools/ci/changes-scope.mjs
 
   quality:
     name: 静态检查（ktlint / detekt / Android Lint）
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     permissions:
       contents: read
       security-events: write # 上传 SARIF 到 Code Scanning
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with: { persist-credentials: false }
-      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+      - uses: ./.github/actions/setup-gates
         with:
-          distribution: temurin
-          java-version: "21"
-      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
-      - name: 接受 SDK 许可并装 compileSdk 的平台
-        run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-37.0"
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
-        with:
-          validate-wrappers: true
-          # 可选：fork PR 没有 secret 时为空，setup-gradle 自动跳过配置缓存加密。
+          # Fork PR 没有 secret 时传空值，Gradle 正常构建，只不跨 runner 保存配置缓存。
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
-      # 不装 NDK / CMake：这三关都不碰 native 构建（实测任务图里没有 cmake 任务），
-      # 而 NDK 要下 ~1GB。APK 的装配另有本地流程（tools/fetch-libnode.ps1 + bundle-dsh.ps1）。
       - name: 门禁
         working-directory: android
         run: ./gradlew spotlessCheck detekt :app:lintDebug --console=plain
@@ -98,22 +89,13 @@ jobs:
     name: 单元测试（JVM）
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with: { persist-credentials: false }
-      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+      - uses: ./.github/actions/setup-gates
         with:
-          distribution: temurin
-          java-version: "21"
-      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
-      - name: 接受 SDK 许可并装 compileSdk 的平台
-        run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-37.0"
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
-        with:
-          validate-wrappers: true
           # 可选：fork PR 没有 secret 时为空，setup-gradle 自动跳过配置缓存加密。
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
       # 顺带编译 androidTest：Lint 默认**不看**测试源码（checkTestSources 关着），
@@ -133,12 +115,15 @@ jobs:
     name: 离线自检（不需要设备）
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with: { persist-credentials: false }
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: "24"
+          cache: npm
+          cache-dependency-path: tools/offline-checks/package-lock.json
       - name: 离线自检（审计 / profile / 插件边界）
         run: bash tools/offline-checks.sh

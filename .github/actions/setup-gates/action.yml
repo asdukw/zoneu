@@ -1,0 +1,29 @@
+name: Setup gates
+description: Shared JDK / Android platform / Gradle setup for static checks and JVM tests.
+
+# ci.yml 的 quality 与 test 共用这一段。刻意**不装 NDK / CMake**：这两关都不碰 native
+# 构建（实测任务图里没有 cmake 任务），而 NDK 要下 ~1GB。APK 的装配走 setup-build。
+inputs:
+  cache-encryption-key:
+    description: Optional setup-gradle configuration-cache encryption key; empty disables that cache.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+      with:
+        distribution: temurin
+        java-version: "21"
+    - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
+    - name: 接受 SDK 许可并装 compileSdk 的平台
+      shell: bash
+      run: |
+        yes | sdkmanager --licenses > /dev/null || true
+        sdkmanager "platforms;android-37.0"
+    - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6
+      with:
+        validate-wrappers: true
+        # 可选：fork PR 没有 secret 时为空，setup-gradle 自动跳过配置缓存加密。
+        cache-encryption-key: ${{ inputs.cache-encryption-key }}
