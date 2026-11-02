@@ -84,4 +84,17 @@ class CardInputTest {
       CardInput.parse(png(compressed("""{"description":"${"a".repeat(CardInput.MAX_JSON)}"}""")))
     }
   }
+
+  @Test
+  fun avatarSniffingAcceptsTheFormatsChubActuallyServes() {
+    val png = png(text("ccv3", card("x")))
+    assertTrue(CardInput.isPng(png))
+    val jpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0, 0)
+    val webp = "RIFF".toByteArray() + ByteArray(4) + "WEBP".toByteArray() + ByteArray(4)
+    val gif = "GIF89a".toByteArray() + ByteArray(4)
+    listOf(png, jpeg, webp, gif).forEach { assertTrue(CardInput.isImage(it)) }
+    // 一张真正的 JSON 卡不是图片：不能因为长度够就当成头像存下来。
+    assertFalse(CardInput.isImage("""{"name":"x"}""".toByteArray()))
+    assertFalse(CardInput.isImage(ByteArray(0)))
+  }
 }

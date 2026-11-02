@@ -75,6 +75,39 @@ class CharacterCardDownloaderTest {
     OkHttpClient.Builder().followRedirects(false).addInterceptor(Interceptor(handler)).build(),
   )
 
+  /** 头像可能是 WebP，不能经过 String（会破坏字节）。 */
+  private fun binaryDownloader(bytes: ByteArray): CharacterCardDownloader =
+    CharacterCardDownloader(
+      OkHttpClient.Builder()
+        .followRedirects(false)
+        .addInterceptor(
+          Interceptor { chain ->
+            Response.Builder()
+              .request(chain.request())
+              .protocol(Protocol.HTTP_1_1)
+              .code(200)
+              .message("test")
+              .body(bytes.toResponseBody())
+              .build()
+          },
+        )
+        .build(),
+    )
+
+  @Test
+  fun avatarDownloadAcceptsWebpAndRejectsHtml() {
+    val webp = "RIFF".toByteArray() + ByteArray(4) + "WEBP".toByteArray() + ByteArray(8)
+    val url = "https://avatars.charhub.io/avatars/x/avatar.webp".toHttpUrl()
+    assertTrue(binaryDownloader(webp).downloadAvatar(url, CardDownloadControl()).contentEquals(webp))
+    val html = "<html><body>rate limited</body></html>".toByteArray()
+    assertEquals(
+      "CARD_AVATAR_UNAVAILABLE",
+      assertThrows(CardOperationException::class.java) {
+        binaryDownloader(html).downloadAvatar(url, CardDownloadControl())
+      }.code,
+    )
+  }
+
   private fun response(chain: Interceptor.Chain, code: Int = 200, location: String? = null, body: String = "{}"): Response =
     Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(code).message("test")
       .apply { location?.let { header("Location", it) } }.body(body.toResponseBody()).build()

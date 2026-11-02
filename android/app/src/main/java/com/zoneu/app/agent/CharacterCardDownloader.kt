@@ -97,10 +97,9 @@ internal class CharacterCardDownloader(
 
   fun downloadAvatar(url: HttpUrl, control: CardDownloadControl): ByteArray {
     val checked = avatarUrl(url.toString())
-    val bytes = downloadInternal(checked, control, 8 * 1024 * 1024, "image/png", 0)
-    if (bytes.size < PNG_MAGIC.size || !PNG_MAGIC.indices.all { bytes[it] == PNG_MAGIC[it] }) {
-      throw CardOperationException("CARD_AVATAR_UNAVAILABLE")
-    }
+    val bytes = downloadInternal(checked, control, 8 * 1024 * 1024, AVATAR_TYPES, 0)
+    // Chub 的头像常是 WebP，不是 PNG：只收 PNG 等于大部分卡都没有脸。
+    if (!CardInput.isImage(bytes)) throw CardOperationException("CARD_AVATAR_UNAVAILABLE")
     return bytes
   }
 
@@ -162,7 +161,7 @@ internal class CharacterCardDownloader(
   }
 
   companion object {
-    internal val PNG_MAGIC = byteArrayOf(137.toByte(), 80, 78, 71, 13, 10, 26, 10)
+    private const val AVATAR_TYPES = "image/png,image/webp,image/jpeg,image/gif"
 
     internal fun productionClient(): OkHttpClient = OkHttpClient.Builder()
       .dns(CardNetworkPolicy.checkedDns(Dns.SYSTEM))

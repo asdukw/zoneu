@@ -18,6 +18,22 @@ object CardInput {
   private val json = Json { isLenient = true }
   private val keywords = listOf("ccv3", "chara", "character")
 
+  /** 一张 PNG 卡：卡数据藏在 PNG 的文本块里，图片本身就是卡的头像。 */
+  fun isPng(bytes: ByteArray): Boolean = bytes.size >= magic.size && magic.indices.all { bytes[it] == magic[it] }
+
+  /** 能直接当头像的位图：BitmapFactory 都认，按魔数判断，不信任 Content-Type。 */
+  fun isImage(bytes: ByteArray): Boolean {
+    if (isPng(bytes) || isJpeg(bytes)) return true
+    if (bytes.size >= 6 && ascii(bytes, 0, 6).startsWith("GIF8")) return true
+    return bytes.size >= 12 && ascii(bytes, 0, 4) == "RIFF" && ascii(bytes, 8, 4) == "WEBP"
+  }
+
+  private fun isJpeg(bytes: ByteArray): Boolean =
+    bytes.size >= 3 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() && bytes[2] == 0xFF.toByte()
+
+  private fun ascii(bytes: ByteArray, offset: Int, length: Int): String =
+    String(bytes, offset, length, Charsets.US_ASCII)
+
   data class Parsed(val root: JsonObject, val keyword: String? = null, val fallback: Boolean = false)
 
   private data class Candidate(val keyword: String, val root: JsonObject?)

@@ -44,7 +44,10 @@ object CharacterCardOperations {
     val downloaded = CharacterCardDownloader().download(api ?: url, control)
     val converted = if (api == null) null else ChubCardAdapter.convertWithMetadata(downloaded, url)
     val bytes = converted?.bytes ?: downloaded
-    val avatar = converted?.avatarUrl?.let { CharacterCardDownloader().downloadAvatar(it, control) }
+    val avatar =
+      converted?.avatarUrl?.let { CharacterCardDownloader().downloadAvatar(it, control) }
+        // 直链本身就是一张 PNG 卡：图就是卡，解析完不能把它一起丢掉。
+        ?: downloaded.takeIf(CardInput::isPng)
     control.check()
     val card = CharacterImporter.fromBytes(bytes, "导入角色").card
     CharacterStore.transaction {

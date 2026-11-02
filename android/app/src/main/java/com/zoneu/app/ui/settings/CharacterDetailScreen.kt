@@ -533,6 +533,10 @@ private fun CharacterHero(card: CharacterCard) {
   }
 }
 
+/**
+ * 头像。卡片导入时带的图就存在卡目录的同名文件里；没有图时给一个中性的人形轮廓，
+ * 而不是名字首字母 —— 一个大写字母看起来更像加载失败。
+ */
 @Composable
 private fun CharacterAvatar(card: CharacterCard) {
   val context = LocalContext.current
@@ -555,10 +559,10 @@ private fun CharacterAvatar(card: CharacterCard) {
         .background(MaterialTheme.colorScheme.surfaceContainerHigh),
     contentAlignment = Alignment.Center,
   ) {
-    Text(
-      text = card.name.take(1),
-      style = MaterialTheme.typography.headlineMediumEmphasized,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    Glyph(
+      kind = GlyphKind.Person,
+      tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+      modifier = Modifier.size(36.dp),
     )
   }
 }
