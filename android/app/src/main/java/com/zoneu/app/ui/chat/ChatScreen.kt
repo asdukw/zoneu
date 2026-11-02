@@ -40,11 +40,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -435,7 +438,6 @@ internal fun ChatScreen(
         activeCharacterId = state.activeCharacterId,
         switchingRole = state.switchingRole,
         enabled = state.canSwitchSession,
-        configSummary = state.configSummary,
         onNewSession = closeThen(scope, drawerState, onNewSession),
         onOpenSession = closeThen(scope, drawerState) { id -> onOpenSession(id) },
         onDeleteSession = onDeleteSession,
@@ -1700,7 +1702,6 @@ private fun SessionDrawer(
   activeCharacterId: String?,
   switchingRole: Boolean,
   enabled: Boolean,
-  configSummary: String,
   onNewSession: () -> Unit,
   onOpenSession: (String) -> Unit,
   onDeleteSession: (String) -> Unit,
@@ -1766,7 +1767,6 @@ private fun SessionDrawer(
 
       DrawerFooter(
         roleplayEntries = tab == DrawerTab.Roleplay,
-        configSummary = configSummary,
         onOpenCharacters = onOpenCharacters,
         onOpenSettings = onOpenSettings,
         onOpenModelSwitch = onOpenModelSwitch,
@@ -1804,7 +1804,6 @@ private fun SessionDrawer(
 @Composable
 private fun DrawerFooter(
   roleplayEntries: Boolean,
-  configSummary: String,
   onOpenCharacters: () -> Unit,
   onOpenSettings: () -> Unit,
   onOpenModelSwitch: () -> Unit,
@@ -1831,14 +1830,6 @@ private fun DrawerFooter(
   }
   DrawerNavRow(label = "设置", onClick = onOpenSettings) {
     Glyph(kind = GlyphKind.Cog, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-  }
-  if (configSummary.isNotBlank()) {
-    Text(
-      text = configSummary,
-      style = MaterialTheme.typography.labelSmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-      modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp),
-    )
   }
 }
 
@@ -2453,6 +2444,14 @@ private fun ThinkingIndicator() {
 }
 
 /**
+ * 输入框底部的让位：系统导航条与键盘取**并集**，不是相加。
+ * 没有底部导航栏之后，这两样都由输入框自己让开；相加会在键盘弹出时多出一条空带。
+ */
+@Composable
+private fun Modifier.composerInsets(): Modifier =
+  windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
+
+/**
  * 底部输入：浮动圆角卡（ChatGPT / DeepSeek 样式），内嵌无边框输入框与圆形发送键；
  * 流式进行中圆键切换为停止。卡片下方一行小字显示当前模型配置。
  */
@@ -2474,7 +2473,7 @@ private fun ChatInputBar(
 ) {
   val textStyle = MaterialTheme.typography.bodyLarge
   Box(
-    modifier = Modifier.fillMaxWidth().imePadding().padding(start = 12.dp, end = 12.dp, bottom = 10.dp),
+    modifier = Modifier.fillMaxWidth().composerInsets().padding(start = 12.dp, end = 12.dp, bottom = 10.dp),
     contentAlignment = Alignment.Center,
   ) {
     Surface(

@@ -58,8 +58,8 @@ import kotlinx.coroutines.delay
 @Composable
 internal fun ProcessBlock(message: ChatMessage) {
   val reasoning = message.reasoning?.takeIf { it.isNotBlank() }
-  val steps = message.toolCalls.size + if (reasoning != null) 1 else 0
-  if (steps == 0) return
+  val toolCount = message.toolCalls.size
+  if (toolCount == 0 && reasoning == null) return
 
   var expanded by rememberSaveable(message.id) { mutableStateOf(message.streaming) }
   var userToggled by rememberSaveable(message.id) { mutableStateOf(false) }
@@ -101,12 +101,7 @@ internal fun ProcessBlock(message: ChatMessage) {
           modifier = Modifier.size(16.dp).rotate(if (expanded) 0f else -90f),
         )
         Text(
-          text =
-            when {
-              expanded -> "收起过程"
-              message.streaming -> "正在执行…"
-              else -> "再显示 $steps 步"
-            },
+          text = processLabel(expanded, message.streaming, toolCount),
           style = MaterialTheme.typography.labelMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           modifier = Modifier.padding(start = 8.dp),
@@ -135,6 +130,18 @@ internal fun ProcessBlock(message: ChatMessage) {
     }
   }
 }
+
+/**
+ * 收起时的标题。只数工具调用：推理只是「模型想了想」，算成一「步」会让收起时
+ * 显示一个点开只有思考行的空步骤。
+ */
+private fun processLabel(expanded: Boolean, streaming: Boolean, toolCount: Int): String =
+  when {
+    expanded -> "收起过程"
+    streaming -> "正在执行…"
+    toolCount > 0 -> "再显示 $toolCount 步"
+    else -> "思考过程"
+  }
 
 /**
  * 过程卡的内部滚动：新步骤到达时贴到底部，用户自己上滑后暂停，滑回底部再恢复。

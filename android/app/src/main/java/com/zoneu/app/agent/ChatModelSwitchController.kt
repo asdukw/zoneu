@@ -15,7 +15,6 @@ import kotlinx.coroutines.withContext
 class ChatModelSwitchController(
   private val switcher: ModelSwitcher?,
   private val scope: CoroutineScope,
-  private val reasoningLabel: String,
   private val snapshot: () -> ChatUiState,
   private val update: ((ChatUiState) -> ChatUiState) -> Unit,
   private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -44,7 +43,6 @@ class ChatModelSwitchController(
               providerName = choice.providerName,
               model = choice.model,
               configured = true,
-              configSummary = "${choice.model} · $reasoningLabel",
             )
           }
           onApplied(choice)

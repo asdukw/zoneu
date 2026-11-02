@@ -67,9 +67,7 @@ fun WorldBookScreen(onBack: () -> Unit, initialBookId: String? = null) {
   val goBack: () -> Unit = { if (id == null) onBack() else selected = null }
   // 详情页是同一路由里的内部状态：不拦系统返回，返回键会直接退出整个世界书页。
   BackHandler(enabled = id != null, onBack = goBack)
-  WorldPage(if (id == null) "世界书" else "共享世界书", goBack, showBack = id != null) {
-    // 列表页是这个页签的根：不画返回键，用大标题占位；详情页保留箭头。
-    if (id == null) BigTitle("世界书")
+  WorldPage(if (id == null) "世界书" else "共享世界书", goBack) {
     ui.message?.let {
       AppBanner(text = it, tone = if (ui.messageIsError) AppBanner.Tone.Error else AppBanner.Tone.Success)
     }
@@ -83,15 +81,10 @@ fun WorldBookScreen(onBack: () -> Unit, initialBookId: String? = null) {
 }
 
 @Composable
-internal fun WorldPage(
-  title: String,
-  onBack: () -> Unit,
-  showBack: Boolean = true,
-  content: @Composable () -> Unit,
-) {
+internal fun WorldPage(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
   Surface(Modifier.fillMaxSize(), color = settingsPageColor()) {
     Column(Modifier.fillMaxSize().zoneuPageInsets()) {
-      if (showBack) SettingsHeader(title, onBack)
+      SettingsHeader(title, onBack)
       Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),

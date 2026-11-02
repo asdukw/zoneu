@@ -3,11 +3,14 @@ package com.zoneu.app.ui.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -46,13 +49,14 @@ import com.zoneu.app.ui.components.zoneuPageInsets
  */
 @Composable
 fun SettingsScreen(
+  onBack: () -> Unit,
   onOpenModelServices: () -> Unit,
   onOpenExecution: () -> Unit,
   onOpenConnectors: () -> Unit,
   onOpenVoice: () -> Unit,
   onOpenScheduledTasks: () -> Unit,
   onOpenAbout: () -> Unit,
-  onOpenCharacters: () -> Unit = {},
+  onOpenTavern: () -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   // context 必须在外面取：viewModel {} 的工厂 lambda 不是 composable 作用域，
@@ -67,13 +71,14 @@ fun SettingsScreen(
 
   SettingsScreen(
     state = state,
+    onBack = onBack,
     onOpenModelServices = onOpenModelServices,
     onOpenExecution = onOpenExecution,
     onOpenConnectors = onOpenConnectors,
     onOpenVoice = onOpenVoice,
     onOpenScheduledTasks = onOpenScheduledTasks,
     onOpenAbout = onOpenAbout,
-    onOpenCharacters = onOpenCharacters,
+    onOpenTavern = onOpenTavern,
     modifier = modifier,
   )
 }
@@ -81,13 +86,14 @@ fun SettingsScreen(
 @Composable
 internal fun SettingsScreen(
   state: SettingsViewModel.UiState,
+  onBack: () -> Unit,
   onOpenModelServices: () -> Unit,
   onOpenExecution: () -> Unit,
   onOpenConnectors: () -> Unit,
   onOpenVoice: () -> Unit,
   onOpenScheduledTasks: () -> Unit,
   onOpenAbout: () -> Unit,
-  onOpenCharacters: () -> Unit = {},
+  onOpenTavern: () -> Unit = {},
   modifier: Modifier = Modifier,
 ) {
   val context = LocalContext.current
@@ -107,6 +113,7 @@ internal fun SettingsScreen(
     Box(Modifier.fillMaxSize().zoneuPageInsets(), contentAlignment = Alignment.TopCenter) {
       SettingsList(
         state = state,
+        onBack = onBack,
         accessibilityEnabled = accessibilityEnabled,
         allowAllWrites = allowAllWrites,
         onOpenModelServices = onOpenModelServices,
@@ -114,7 +121,7 @@ internal fun SettingsScreen(
         onOpenConnectors = onOpenConnectors,
         onOpenVoice = onOpenVoice,
         onOpenScheduledTasks = onOpenScheduledTasks,
-        onOpenCharacters = onOpenCharacters,
+        onOpenTavern = onOpenTavern,
         onOpenAbout = onOpenAbout,
       )
     }
@@ -128,6 +135,7 @@ internal fun SettingsScreen(
 @Composable
 private fun SettingsList(
   state: SettingsViewModel.UiState,
+  onBack: () -> Unit,
   accessibilityEnabled: Boolean,
   allowAllWrites: Boolean,
   onOpenModelServices: () -> Unit,
@@ -135,7 +143,7 @@ private fun SettingsList(
   onOpenConnectors: () -> Unit,
   onOpenVoice: () -> Unit,
   onOpenScheduledTasks: () -> Unit,
-  onOpenCharacters: () -> Unit,
+  onOpenTavern: () -> Unit,
   onOpenAbout: () -> Unit,
 ) {
   LazyColumn(
@@ -150,11 +158,20 @@ private fun SettingsList(
     verticalArrangement = Arrangement.spacedBy(ZoneuSpacing.xs),
   ) {
     item {
-      Text(
-        text = "设置",
-        style = MaterialTheme.typography.headlineLargeEmphasized,
-        modifier = Modifier.padding(start = ZoneuSpacing.xs, top = ZoneuSpacing.sm, bottom = ZoneuSpacing.lg),
-      )
+      // 大标题 + 返回键同一行：设置页是推进来的，箭头就在这里，不再单独占一条顶栏。
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().padding(top = ZoneuSpacing.xs, bottom = ZoneuSpacing.md),
+      ) {
+        IconButton(onClick = onBack, modifier = Modifier.size(ZoneuSize.touchTarget)) {
+          Glyph(GlyphKind.Back, Modifier.size(ZoneuSize.icon))
+        }
+        Text(
+          text = "设置",
+          style = MaterialTheme.typography.headlineLargeEmphasized,
+          modifier = Modifier.padding(start = ZoneuSpacing.xxs),
+        )
+      }
     }
     item {
       MainSettingsGroup(
@@ -168,7 +185,7 @@ private fun SettingsList(
       )
     }
     item { AutomationSettingsGroup(onOpenScheduledTasks) }
-    item { EntertainmentSection(onOpenCharacters) }
+    item { EntertainmentSection(onOpenTavern) }
     item { AboutSettingsGroup(onOpenAbout) }
   }
 }

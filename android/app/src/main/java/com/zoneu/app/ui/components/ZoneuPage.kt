@@ -163,13 +163,13 @@ internal fun ZoneuEmptyState(
 }
 
 /**
- * 页面内边距：只让出状态栏/刘海和左右两侧。
+ * 页面内边距：让出状态栏、刘海、左右两侧和系统导航条。
  *
- * 底部由应用外壳的 NavigationBar 或输入框的 imePadding 负责；页面再各让一次
- * navigation bar inset，就会在底栏上方多出一条 24dp 的空带。
+ * 没有底部导航栏之后每个页面自己负责底部；输入框另有 imePadding，
+ * 这两者取并集而不是相加，键盘弹出时不会多出一条空带。
  */
 @Composable
 fun Modifier.zoneuPageInsets(): Modifier =
   windowInsetsPadding(
-    WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+    WindowInsets.safeDrawing,
   )

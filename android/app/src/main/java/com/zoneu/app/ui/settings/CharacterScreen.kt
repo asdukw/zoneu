@@ -47,8 +47,6 @@ import com.zoneu.app.ui.components.zoneuPageInsets
 fun CharacterScreen(
   onBack: () -> Unit,
   onOpenDetail: (String) -> Unit = {},
-  // 作为底部页签的根目的地时不画返回键：那里没有上一页可回，箭头按下去是空的。
-  root: Boolean = false,
   modifier: Modifier = Modifier,
 ) {
   val appContext = LocalContext.current.applicationContext
@@ -77,7 +75,6 @@ fun CharacterScreen(
     onDismissMessage = viewModel::consumeMessage,
     // 点一行进详情页：卡里存着人设 / 开场 / 世界设定，直接开聊等于逼用户先聊再判断。
     onOpenDetail = onOpenDetail,
-    root = root,
     modifier = modifier,
   )
 }
@@ -92,14 +89,13 @@ internal fun CharacterScreen(
   onDismissMessage: () -> Unit = {},
   onOpenDetail: (String) -> Unit = {},
   onCreateBlank: () -> Unit = {},
-  root: Boolean = false,
   modifier: Modifier = Modifier,
 ) {
   val appContext = LocalContext.current.applicationContext
   var query by remember { mutableStateOf("") }
   Surface(modifier = modifier.fillMaxSize(), color = settingsPageColor()) {
     Column(Modifier.fillMaxSize().zoneuPageInsets()) {
-      if (!root) SettingsHeader(title = "角色", onBack = onBack)
+      SettingsHeader(title = "角色与世界", onBack = onBack)
       Column(
         modifier =
           Modifier.fillMaxSize()
@@ -107,7 +103,6 @@ internal fun CharacterScreen(
             .padding(horizontal = 16.dp)
             .padding(bottom = 24.dp),
       ) {
-        if (root) BigTitle("角色")
         if (state.active != null) {
           ActiveBanner(card = state.active!!, applying = state.applying, onStop = onStop)
         }
@@ -158,24 +153,30 @@ internal fun CharacterScreen(
           }
         }
 
-        SectionLabel("角色如何生效")
-        SettingsGroup {
-          Column(Modifier.padding(16.dp)) {
-            Note("默认不使用卡内的系统提示词和示例对话；可在编辑角色的高级设置中开启。")
-            Note("常驻的世界设定每轮都在；其余条目在发消息那一刻按关键词命中才跟着这一轮送进去。")
-            Note("记忆按角色分开存，只对它自己生效；内容由你写，模型不会偷偷往里加。")
-          }
-        }
-        Spacer(Modifier.height(12.dp))
-        Text(
-          text = "开始扮演会重载运行时并开一段新上下文；退出角色随时可以回到日常。",
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
-          modifier = Modifier.padding(horizontal = 4.dp),
-        )
+        HowCharactersWork()
       }
     }
   }
+}
+
+/** 卡里的字段怎么进对话：默认不用系统提示词，世界设定按关键词命中。 */
+@Composable
+private fun HowCharactersWork() {
+  SectionLabel("角色如何生效")
+  SettingsGroup {
+    Column(Modifier.padding(16.dp)) {
+      Note("默认不使用卡内的系统提示词和示例对话；可在编辑角色的高级设置中开启。")
+      Note("常驻的世界设定每轮都在；其余条目在发消息那一刻按关键词命中才跟着这一轮送进去。")
+      Note("记忆按角色分开存，只对它自己生效；内容由你写，模型不会偷偷往里加。")
+    }
+  }
+  Spacer(Modifier.height(12.dp))
+  Text(
+    text = "开始扮演会重载运行时并开一段新上下文；退出角色随时可以回到日常。",
+    style = MaterialTheme.typography.bodySmall,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    modifier = Modifier.padding(horizontal = 4.dp),
+  )
 }
 
 /** 角色库搜索：匹配名字、一句话介绍与标签。 */

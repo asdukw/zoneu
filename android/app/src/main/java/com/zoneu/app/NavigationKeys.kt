@@ -42,7 +42,10 @@ import kotlinx.serialization.Serializable
 /** 助手（人格）设置（设置 → 助手）：换人格、写自定义 soul、语气契约开关。 */
 @Serializable data object Persona : NavKey
 
-/** 角色库（设置 → 角色）：选一张角色卡开始角色扮演。 */
+/** 酒馆（设置 → 酒馆）：角色扮演的两个子页 —— 角色卡与世界书。 */
+@Serializable data object Tavern : NavKey
+
+/** 角色库（设置 → 酒馆 → 角色卡）：选一张角色卡开始角色扮演。 */
 @Serializable data object Characters : NavKey
 
 /** 一张角色卡的详情：人设 / 开场 / 世界设定，收藏与开始对话都从这里走。 */

@@ -6,14 +6,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -35,173 +29,155 @@ import com.zoneu.app.ui.settings.ProvidersScreen
 import com.zoneu.app.ui.settings.ScheduledTaskRunScreen
 import com.zoneu.app.ui.settings.ScheduledTaskScreen
 import com.zoneu.app.ui.settings.SettingsScreen
+import com.zoneu.app.ui.settings.TavernScreen
 import com.zoneu.app.ui.settings.VoiceScreen
 import com.zoneu.app.ui.settings.WorldBindingScreen
 import com.zoneu.app.ui.settings.WorldBookScreen
-import com.zoneu.app.ui.shell.ZoneuBottomBarHost
-import com.zoneu.app.ui.shell.ZoneuTab
-import com.zoneu.app.ui.shell.ZoneuTabs
 
 /**
- * 应用外壳：底部四个一级目的地 + 每个页签独立的返回栈。
+ * 单栈导航：聊天是根，其余页面都从它推进来。
  *
- * 页面本身仍然只认识 `onBack` / `onOpenX` 回调，不知道底部栏存在；
- * 要换页签时由这里把回调接到 [ZoneuTabs.select]。
+ * 不再有底部页签 —— 角色与世界书是低频入口，挂在设置里的「角色与世界」一项下面，
+ * 世界书更是角色的附加设定（角色卡自带世界书，额外的才是这里新增的）。
  */
 @Composable
 fun MainNavigation() {
-  val chatStack = rememberNavBackStack(Main)
-  val characterStack = rememberNavBackStack(Characters)
-  val worldStack = rememberNavBackStack(WorldBooks())
-  val settingsStack = rememberNavBackStack(Settings)
-  val tabs =
-    remember(chatStack, characterStack, worldStack, settingsStack) {
-      ZoneuTabs(
-        chat = chatStack,
-        characters = characterStack,
-        worldBooks = worldStack,
-        settings = settingsStack,
-      )
-    }
+  val backStack = rememberNavBackStack(Main)
   val activity = LocalActivity.current
 
   CompositionLocalProvider(
     LocalWorldNavigation provides
       WorldNavigation(
-        openLibrary = {
-          tabs.popToRoot(ZoneuTab.WorldBooks)
-          tabs.select(ZoneuTab.WorldBooks)
-        },
-        openBook = { id -> tabs.push(ZoneuTab.WorldBooks, WorldBooks(id)) },
-        openBindings = { scope, id -> tabs.push(ZoneuTab.WorldBooks, WorldBindings(scope, id)) },
+        openLibrary = { backStack.add(WorldBooks()) },
+        openBook = { id -> backStack.add(WorldBooks(id)) },
+        openBindings = { scope, id -> backStack.add(WorldBindings(scope, id)) },
       ),
   ) {
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-      NavDisplay(
-        backStack = tabs.stack,
-        modifier = Modifier.weight(1f),
-        onBack = { if (!tabs.back()) activity?.finish() },
-        // 方向感：新页面从右侧轻轻推进，返回时反向。默认的整屏淡入在长列表上像闪一下。
-        transitionSpec = {
-          (slideInHorizontally { it / 8 } + fadeIn()) togetherWith
-            (slideOutHorizontally { -it / 12 } + fadeOut())
+    NavDisplay(
+      backStack = backStack,
+      onBack = { if (backStack.size > 1) backStack.removeLastOrNull() else activity?.finish() },
+      // 方向感：新页面从右侧轻轻推进，返回时反向。默认的整屏淡入在长列表上像闪一下。
+      transitionSpec = {
+        (slideInHorizontally { it / 8 } + fadeIn()) togetherWith
+          (slideOutHorizontally { -it / 12 } + fadeOut())
+      },
+      popTransitionSpec = {
+        (slideInHorizontally { -it / 12 } + fadeIn()) togetherWith
+          (slideOutHorizontally { it / 8 } + fadeOut())
+      },
+      predictivePopTransitionSpec = { (fadeIn() + slideInHorizontally { -it / 12 }) togetherWith fadeOut() },
+      entryProvider =
+        entryProvider {
+          entry<Main> {
+            ChatScreen(
+              onOpenSettings = { backStack.add(Settings) },
+              // 酒馆侧栏的入口：直接进角色库，不必绕设置。
+              onOpenCharacters = { backStack.add(Characters) },
+              onOpenCharacterDetail = { id -> backStack.add(CharacterDetail(id)) },
+            )
+          }
+          settingsEntries(backStack)
+          worldEntries(backStack)
+          scheduleEntries(backStack)
+          tavernEntries(backStack)
         },
-        popTransitionSpec = {
-          (slideInHorizontally { -it / 12 } + fadeIn()) togetherWith
-            (slideOutHorizontally { it / 8 } + fadeOut())
-        },
-        predictivePopTransitionSpec = { (fadeIn() + slideInHorizontally { -it / 12 }) togetherWith fadeOut() },
-        entryProvider =
-          entryProvider {
-            entry<Main> {
-              ChatScreen(
-                onOpenSettings = { tabs.select(ZoneuTab.Settings) },
-                // 酒馆侧栏的入口：直接进角色库，不必绕设置。
-                onOpenCharacters = { tabs.select(ZoneuTab.Characters) },
-                onOpenCharacterDetail = { id -> tabs.push(ZoneuTab.Chat, CharacterDetail(id)) },
-              )
-            }
-            settingsEntries(tabs)
-            worldEntries(tabs)
-            scheduleEntries(tabs)
-            tavernEntries(tabs)
-          },
-      )
-      ZoneuBottomBarHost(current = tabs.current, onSelect = { tab -> tabs.select(tab) })
-    }
+    )
   }
 }
 
-private fun EntryProviderScope<NavKey>.settingsEntries(tabs: ZoneuTabs) {
+private fun EntryProviderScope<NavKey>.settingsEntries(backStack: MutableList<NavKey>) {
   entry<Settings> {
     SettingsScreen(
-      onOpenModelServices = { tabs.push(ZoneuTab.Settings, ModelServices) },
-      onOpenExecution = { tabs.push(ZoneuTab.Settings, ExecutionSettings) },
-      onOpenConnectors = { tabs.push(ZoneuTab.Settings, Connectors) },
-      onOpenVoice = { tabs.push(ZoneuTab.Settings, Voice) },
-      onOpenScheduledTasks = { tabs.push(ZoneuTab.Settings, ScheduledTasks) },
-      onOpenCharacters = { tabs.select(ZoneuTab.Characters) },
-      onOpenAbout = { tabs.push(ZoneuTab.Settings, About) },
+      onBack = { backStack.removeLastOrNull() },
+      onOpenModelServices = { backStack.add(ModelServices) },
+      onOpenExecution = { backStack.add(ExecutionSettings) },
+      onOpenConnectors = { backStack.add(Connectors) },
+      onOpenVoice = { backStack.add(Voice) },
+      onOpenScheduledTasks = { backStack.add(ScheduledTasks) },
+      onOpenTavern = { backStack.add(Tavern) },
+      onOpenAbout = { backStack.add(About) },
     )
   }
   entry<ModelServices> {
     ModelServicesScreen(
-      onBack = { tabs.back() },
-      onOpenProviders = { tabs.push(ZoneuTab.Settings, Providers) },
+      onBack = { backStack.removeLastOrNull() },
+      onOpenProviders = { backStack.add(Providers) },
     )
   }
   entry<ExecutionSettings> {
-    ExecutionSettingsScreen(onBack = { tabs.back() })
+    ExecutionSettingsScreen(onBack = { backStack.removeLastOrNull() })
   }
-  entry<About> { AboutScreen(onBack = { tabs.back() }) }
+  entry<About> { AboutScreen(onBack = { backStack.removeLastOrNull() }) }
   entry<Providers> {
     ProvidersScreen(
-      onBack = { tabs.back() },
-      onOpenProvider = { id -> tabs.push(ZoneuTab.Settings, ProviderDetail(id)) },
+      onBack = { backStack.removeLastOrNull() },
+      onOpenProvider = { id -> backStack.add(ProviderDetail(id)) },
     )
   }
   entry<Connectors> {
     ConnectorsScreen(
-      onBack = { tabs.back() },
-      onOpenGmail = { tabs.push(ZoneuTab.Settings, GmailConnector) },
+      onBack = { backStack.removeLastOrNull() },
+      onOpenGmail = { backStack.add(GmailConnector) },
     )
   }
   entry<GmailConnector> {
-    GmailConnectorScreen(onBack = { tabs.back() })
+    GmailConnectorScreen(onBack = { backStack.removeLastOrNull() })
   }
   entry<ProviderDetail> { key ->
     ProviderDetailScreen(
       providerId = key.providerId,
-      onBack = { tabs.back() },
+      onBack = { backStack.removeLastOrNull() },
     )
   }
   entry<Voice> {
-    VoiceScreen(onBack = { tabs.back() })
+    VoiceScreen(onBack = { backStack.removeLastOrNull() })
   }
 }
 
-private fun EntryProviderScope<NavKey>.tavernEntries(tabs: ZoneuTabs) {
+private fun EntryProviderScope<NavKey>.tavernEntries(backStack: MutableList<NavKey>) {
+  entry<Tavern> {
+    TavernScreen(
+      onBack = { backStack.removeLastOrNull() },
+      onOpenCharacters = { backStack.add(Characters) },
+      onOpenWorldBooks = { backStack.add(WorldBooks()) },
+    )
+  }
   entry<Persona> {
-    PersonaScreen(onBack = { tabs.back() })
+    PersonaScreen(onBack = { backStack.removeLastOrNull() })
   }
   entry<Characters> {
     // 开始对话这件事交给详情页：点一行先看卡在演什么，再决定要不要开。
     CharacterScreen(
-      onBack = { tabs.back() },
-      onOpenDetail = { id -> tabs.push(ZoneuTab.Characters, CharacterDetail(id)) },
-      root = true,
+      onBack = { backStack.removeLastOrNull() },
+      onOpenDetail = { id -> backStack.add(CharacterDetail(id)) },
     )
   }
   entry<CharacterDetail> { key ->
     CharacterDetailScreen(
       characterId = key.characterId,
-      onBack = { tabs.back() },
-      onStartChat = {
-        // 从角色库进来时对话栈本来就在根上；从聊天里的工具卡进来时再把它退干净。
-        tabs.popToRoot(ZoneuTab.Chat)
-        tabs.select(ZoneuTab.Chat)
-      },
+      onBack = { backStack.removeLastOrNull() },
+      onStartChat = { repeat(backStack.size - 1) { backStack.removeLastOrNull() } },
     )
   }
 }
 
-private fun EntryProviderScope<NavKey>.worldEntries(tabs: ZoneuTabs) {
+private fun EntryProviderScope<NavKey>.worldEntries(backStack: MutableList<NavKey>) {
   entry<WorldBooks> { key ->
-    WorldBookScreen(onBack = { tabs.back() }, initialBookId = key.bookId)
+    WorldBookScreen(onBack = { backStack.removeLastOrNull() }, initialBookId = key.bookId)
   }
   entry<WorldBindings> { key ->
-    WorldBindingScreen(key.scope, key.targetId, onBack = { tabs.back() })
+    WorldBindingScreen(key.scope, key.targetId, onBack = { backStack.removeLastOrNull() })
   }
 }
 
-private fun EntryProviderScope<NavKey>.scheduleEntries(tabs: ZoneuTabs) {
+private fun EntryProviderScope<NavKey>.scheduleEntries(backStack: MutableList<NavKey>) {
   entry<ScheduledTasks> {
     ScheduledTaskScreen(
-      onBack = { tabs.back() },
-      onOpenRuns = { id -> tabs.push(ZoneuTab.Settings, ScheduledTaskRuns(id)) },
+      onBack = { backStack.removeLastOrNull() },
+      onOpenRuns = { id -> backStack.add(ScheduledTaskRuns(id)) },
     )
   }
   entry<ScheduledTaskRuns> { key ->
-    ScheduledTaskRunScreen(taskId = key.taskId, onBack = { tabs.back() })
+    ScheduledTaskRunScreen(taskId = key.taskId, onBack = { backStack.removeLastOrNull() })
   }
 }

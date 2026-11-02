@@ -103,7 +103,6 @@ data class ChatUiState(
   val messages: List<ChatMessage> = emptyList(),
   val input: String = "",
   val isStreaming: Boolean = false,
-  val configSummary: String = "",
   val configured: Boolean = true,
   /** 当前提供商 / 模型（聊天页切换器用）。 */
   val providerId: String = "",
@@ -192,12 +191,9 @@ class ChatViewModel(
    */
   private val variants = store.variantsOrNone()
 
-  private val reasoningLabel = config.reasoningEffort ?: "默认"
-
   private val _state =
     MutableStateFlow(
       ChatUiState(
-        configSummary = config.shortSummary(),
         configured = config.isConfigured,
         providerId = config.preset.id,
         providerName = config.preset.label,
@@ -222,7 +218,6 @@ class ChatViewModel(
             providerName = choice.providerName,
             model = choice.model,
             configured = true,
-            configSummary = "${choice.model} · $reasoningLabel",
           )
         }
       },
@@ -234,7 +229,6 @@ class ChatViewModel(
     ChatModelSwitchController(
       switcher = switcher,
       scope = viewModelScope,
-      reasoningLabel = reasoningLabel,
       snapshot = { _state.value },
       update = { transform -> _state.update(transform) },
       ioDispatcher = timing.dispatcher,
@@ -412,7 +406,6 @@ class ChatViewModel(
   fun refreshConfiguration(config: AgentConfig) {
     _state.update {
       it.copy(
-        configSummary = config.shortSummary(),
         configured = config.isConfigured,
         providerId = config.preset.id,
         providerName = config.preset.label,
@@ -768,7 +761,6 @@ class ChatViewModel(
           providerId = fresh.preset.id,
           providerName = fresh.preset.label,
           model = fresh.model,
-          configSummary = fresh.shortSummary(),
         )
       }
     }

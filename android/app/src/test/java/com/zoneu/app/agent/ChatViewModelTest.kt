@@ -638,7 +638,6 @@ class ChatViewModelTest {
     assertEquals("gpt-6-sol", state.model)
     assertFalse(state.switchingModel)
     assertNull(state.switchError)
-    assertTrue(state.configSummary.contains("gpt-6-sol"))
   }
 
   @Test
