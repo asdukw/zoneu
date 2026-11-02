@@ -16,6 +16,11 @@ data class TurnHost(
   val markThinkingMs: (id: String, ms: Long) -> Unit,
   val flush: suspend (id: String, content: StringBuilder, reasoning: StringBuilder, status: MessageStatus, error: String?) -> Unit,
   val finishStream: (id: String, error: String?) -> Unit,
+  /**
+   * 模型问完、用户答完：把答案落成一条用户消息，并开一条新的助手消息接着写，返回新消息 id。
+   * 落库失败返回 null（这一轮照常继续，只是答案不单独成条）。
+   */
+  val splitForAnswer: suspend (oldId: String, answer: String) -> String?,
   val startToolCall: suspend (messageId: String, sessionId: String, event: AgentStreamEvent.ToolCallStarted) -> Unit,
   val finishToolCall: suspend (messageId: String, event: AgentStreamEvent.ToolCallFinished) -> Unit,
   val finishRunningToolCalls: suspend (messageId: String) -> Unit,
@@ -35,7 +40,7 @@ data class TurnHost(
  */
 class StreamTurn(
   private val sessionId: String,
-  private val draftId: String,
+  draftId: String,
   base: String = "",
   private val host: TurnHost,
 ) {
@@ -46,7 +51,13 @@ class StreamTurn(
   var completed = false
     private set
   private var statusOnly = false
-  private val baseLength = base.length
+  private var baseLength = base.length
+
+  /** 本轮的 draft 会在「用户回答提问」处换一条：答案要单独成一条用户消息。 */
+  private var draftId = draftId
+
+  /** callId → 调用开始帧（名字与参数）：收尾时要靠它认出是哪个工具。 */
+  private val startedCalls = mutableMapOf<String, AgentStreamEvent.ToolCallStarted>()
   private var receivedAnswer = false
   val hasAdoptedAnswer: Boolean get() = receivedAnswer && !statusOnly && content.length > baseLength
 
@@ -65,11 +76,23 @@ class StreamTurn(
   suspend fun handle(event: AgentStreamEvent) {
     when (event) {
       is AgentStreamEvent.ReasoningDelta -> onReasoning(event)
+
       is AgentStreamEvent.Status -> onStatus(event.text)
-      is AgentStreamEvent.ToolCallStarted -> host.startToolCall(draftId, sessionId, event)
-      is AgentStreamEvent.ToolCallFinished -> host.finishToolCall(draftId, event)
+
+      is AgentStreamEvent.ToolCallStarted -> {
+        event.callId?.let { startedCalls[it] = event }
+        host.startToolCall(draftId, sessionId, event)
+      }
+
+      is AgentStreamEvent.ToolCallFinished -> {
+        host.finishToolCall(draftId, event)
+        splitAfterAnswer(event)
+      }
+
       is AgentStreamEvent.TextDelta -> onTextDelta(event)
+
       is AgentStreamEvent.StepFinal -> onStepFinal(event)
+
       AgentStreamEvent.Completed -> completed = true
     }
   }
@@ -91,7 +114,43 @@ class StreamTurn(
     throttleFlush(now)
   }
 
+  /**
+   * `ask_user_question` 收尾：用户答了什么，要在聊天里**看得见**。
+   *
+   * 答案本来是工具结果，混在助手这条消息里就成了一行折叠的过程；这里把当前这条助手消息
+   * 落定，插一条用户消息（答案），再开一条新的助手消息接着写后面的话。
+   * 解析不出答案（结果不是预期形状）就什么都不做 —— 工具本身已经成功，不因为展示失败重跑。
+   */
+  private suspend fun splitAfterAnswer(event: AgentStreamEvent.ToolCallFinished) {
+    if (!event.ok) return
+    val call = event.callId?.let { startedCalls.remove(it) } ?: return
+    if (call.name != "ask_user_question") return
+    val answer = UserQuestionAnswers.displayText(call.arguments, event.result) ?: return
+    // 这一段只有占位文案（「正在启动 dsh 运行时…」）时不能把它固化进聊天记录：
+    // 封存之后不再有增量来覆盖它，它会一直挂着。清空正文，只留过程块里的提问卡。
+    if (statusOnly) {
+      content.clear()
+      statusOnly = false
+      host.appendText(draftId, "", true)
+    }
+    // 增量上屏是节流的：收尾前先把缓冲对齐到界面，否则最后那句话会随缓冲一起被清掉。
+    if (content.isNotEmpty()) host.appendText(draftId, content.toString(), true)
+    host.flush(draftId, content, reasoning, MessageStatus.Complete, null)
+    val next = host.splitForAnswer(draftId, answer) ?: return
+    draftId = next
+    content.clear()
+    reasoning.clear()
+    stepStart = 0
+    reasoningStepStart = 0
+    baseLength = 0
+    statusOnly = false
+  }
+
   private suspend fun onStatus(text: String) {
+    // 占位文案只在这一步还什么都没说时才上屏。模型常「先说一句，再调工具」，
+    // 旧实现会把它整段抹成「正在调用 xxx…」，正文从界面和库里一起消失。
+    // 续写也不能盖掉已有的前半段，所以 base 非空时同样跳过。
+    if (baseLength > 0 || content.length > baseLength) return
     statusOnly = true
     content.clear()
     content.append(text)

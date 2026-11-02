@@ -294,6 +294,7 @@ class ChatViewModel(
       markThinkingMs = { id, ms -> marks.markThinkingMs(id, ms) },
       flush = { id, content, reasoning, status, error -> flush(id, content, reasoning, status, error) },
       finishStream = { id, error -> marks.finishStream(id, error) },
+      splitForAnswer = { oldId, answer -> splitForAnswer(oldId, answer) },
       startToolCall = { messageId, sessionId, event -> toolMarks.start(messageId, sessionId, event) },
       finishToolCall = { messageId, event -> toolMarks.finish(messageId, event) },
       finishRunningToolCalls = { messageId -> toolMarks.finishRunning(messageId) },
@@ -475,6 +476,33 @@ class ChatViewModel(
 
         streamInto(sessionId, draft.id, wire, tavern)
       }
+  }
+
+  /**
+   * 用户回答了 `ask_user_question`：答案单独成一条用户消息，后面的话写进新的助手消息。
+   *
+   * 回答是工具结果，但**用户看得见自己说了什么**比「忠实于工具协议」更重要；
+   * 不这么做，答案就只剩折叠过程里的一行 JSON。落库失败就放弃拆分，这一轮照常继续。
+   */
+  private suspend fun splitForAnswer(oldId: String, answer: String): String? {
+    val sessionId = _state.value.sessionId ?: return null
+    val rows =
+      runCatching {
+        store.appendMessage(sessionId, MessageRole.User, answer, MessageStatus.Complete) to
+          store.appendMessage(sessionId, MessageRole.Assistant, "", MessageStatus.Streaming)
+      }.getOrNull() ?: return null
+    val (question, draft) = rows
+    _state.update { state ->
+      state.copy(
+        messages =
+          state.messages.map { message ->
+            if (message.id == oldId) message.copy(streaming = false) else message
+          } +
+            ChatMessage(id = question.id, role = ChatRole.User, content = answer) +
+            ChatMessage(id = draft.id, role = ChatRole.Assistant, streaming = true),
+      )
+    }
+    return draft.id
   }
 
   /**

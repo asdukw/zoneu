@@ -103,6 +103,123 @@ class ChatViewModelTest {
   }
 
   @Test
+  fun send_keepsTheTextSaidBeforeAToolCall() = runTest(dispatcher) {
+    // 模型「先说一句、再调工具」是常态；状态文案只该占位，不能把已经说出来的正文抹掉。
+    val store = FakeSessionStore()
+    val viewModel =
+      ChatViewModel(
+        config = testConfig(),
+        streamer =
+          FakeStreamer(
+            events =
+              listOf(
+                AgentStreamEvent.TextDelta("我先看一遍收件箱。"),
+                AgentStreamEvent.Status("正在调用 ask_user_question…"),
+                AgentStreamEvent.ToolCallStarted(callId = "c1", name = "ask_user_question", arguments = "{}"),
+                AgentStreamEvent.ToolCallFinished(callId = "c1", ok = true, result = "{}"),
+                AgentStreamEvent.TextDelta("已经归档 11 封。"),
+                AgentStreamEvent.Completed,
+              ),
+          ),
+        store = store,
+      )
+    advanceUntilIdle()
+
+    viewModel.onInputChange("整理邮件")
+    viewModel.send()
+    advanceUntilIdle()
+
+    val content = viewModel.state.value.messages.last().content
+    assertTrue("界面丢了工具调用前的话：$content", content.contains("我先看一遍收件箱。"))
+    assertTrue("界面丢了工具调用后的话：$content", content.contains("已经归档 11 封。"))
+    assertTrue(store.rows.last().content.contains("我先看一遍收件箱。"))
+    assertFalse("状态文案不该留在正文里", content.contains("正在调用"))
+  }
+
+  @Test
+  fun send_showsTheAnswerToAQuestionAsItsOwnUserMessage() = runTest(dispatcher) {
+    // ask_user_question 的答案本来是工具结果；用户要能看见自己答了什么，且后面的话另起一条。
+    val store = FakeSessionStore()
+    val viewModel =
+      ChatViewModel(
+        config = testConfig(),
+        streamer =
+          FakeStreamer(
+            events =
+              listOf(
+                AgentStreamEvent.TextDelta("我先列一下这些邮件。"),
+                AgentStreamEvent.Status("正在调用 ask_user_question…"),
+                AgentStreamEvent.ToolCallStarted(
+                  callId = "c1",
+                  name = "ask_user_question",
+                  arguments = """{"questions":[{"id":"q1","question":"要归档哪一批？","options":[{"label":"低优先级"},{"label":"全部"}]}]}""",
+                ),
+                AgentStreamEvent.ToolCallFinished(callId = "c1", ok = true, result = """{"answers":[{"id":"q1","selected":["低优先级"]}]}"""),
+                AgentStreamEvent.TextDelta("已归档 11 封。"),
+                AgentStreamEvent.Completed,
+              ),
+          ),
+        store = store,
+      )
+    advanceUntilIdle()
+
+    viewModel.onInputChange("整理邮件")
+    viewModel.send()
+    advanceUntilIdle()
+
+    val messages = viewModel.state.value.messages
+    assertEquals(4, messages.size)
+    assertEquals(ChatRole.User, messages[0].role)
+    assertEquals("我先列一下这些邮件。", messages[1].content)
+    assertFalse(messages[1].streaming)
+    assertEquals(ChatRole.User, messages[2].role)
+    assertEquals("低优先级", messages[2].content)
+    assertEquals(ChatRole.Assistant, messages[3].role)
+    assertEquals("已归档 11 封。", messages[3].content)
+    assertFalse(messages[3].streaming)
+    assertEquals(4, store.rows.size)
+    assertEquals("低优先级", store.rows[2].content)
+  }
+
+  @Test
+  fun send_doesNotFreezeTheStatusPlaceholderIntoTheTranscript() = runTest(dispatcher) {
+    // 模型一上来就问、之前一句正文都没有：占位文案不能被封进聊天记录里。
+    val store = FakeSessionStore()
+    val viewModel =
+      ChatViewModel(
+        config = testConfig(),
+        streamer =
+          FakeStreamer(
+            events =
+              listOf(
+                AgentStreamEvent.Status("正在启动 dsh 运行时…"),
+                AgentStreamEvent.ToolCallStarted(
+                  callId = "c1",
+                  name = "ask_user_question",
+                  arguments = """{"questions":[{"id":"q1","question":"吃面还是吃饭？"}]}""",
+                ),
+                AgentStreamEvent.ToolCallFinished(callId = "c1", ok = true, result = """{"answers":[{"id":"q1","selected":["面"]}]}"""),
+                AgentStreamEvent.TextDelta("好，吃面。"),
+                AgentStreamEvent.Completed,
+              ),
+          ),
+        store = store,
+      )
+    advanceUntilIdle()
+
+    viewModel.onInputChange("问我想吃什么")
+    viewModel.send()
+    advanceUntilIdle()
+
+    val messages = viewModel.state.value.messages
+    assertEquals(4, messages.size)
+    assertEquals("", messages[1].content)
+    assertEquals(1, messages[1].toolCalls.size)
+    assertEquals("面", messages[2].content)
+    assertEquals("好，吃面。", messages[3].content)
+  }
+
+  @Test
   fun send_persistsBothMessagesAndFinishesTheDraft() = runTest(dispatcher) {
     val store = FakeSessionStore()
     val viewModel = ChatViewModel(config = testConfig(), streamer = FakeStreamer(events = listOf(AgentStreamEvent.TextDelta("你好"))), store = store)
