@@ -2009,7 +2009,7 @@ private fun EmptyHint(
         } else if (characterName != null) {
           "先说一句就行 —— 开场由这张卡自己写。"
         } else {
-          "说出要手机做什么，例如「打开设置看看电池电量」。\n任务会实时操作手机界面，工具调用会逐张出现。"
+          "说出要手机做什么，例如「帮我整理一下近期的邮件」。\n任务会实时操作手机界面，工具调用会逐张出现。"
         },
       style = MaterialTheme.typography.bodyMedium,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -2017,7 +2017,7 @@ private fun EmptyHint(
       modifier = Modifier.padding(top = ZoneuSpacing.sm),
     )
     if (characterName == null) {
-      val suggestions = listOf("打开设置看看电池电量", "帮我设一个明早 8 点的闹钟", "看看今天的日程")
+      val suggestions = listOf("帮我整理一下近期的邮件", "帮我设一个明早 8 点的闹钟", "看看今天的日程")
       FlowRow(
         modifier = Modifier.padding(top = ZoneuSpacing.xl),
         horizontalArrangement = Arrangement.spacedBy(ZoneuSpacing.sm),

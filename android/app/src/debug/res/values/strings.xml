@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 仅 debug 构建：桌面上与 release 包区分开（applicationIdSuffix 另见 local.properties）。 -->
+    <string name="app_name">zoneu debug</string>
+</resources>
