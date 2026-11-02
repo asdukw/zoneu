@@ -65,8 +65,9 @@ internal class WorldBookStorageAssets(private val database: ZoneuDatabase) {
     val draft = original.copy(
       id = UUID.randomUUID().toString(),
       revision = "",
-      // A copy of an already-512-char name must not persist an over-limit head.
-      name = (original.name + " · 副本").take(512),
+      // A copy of an already-512-char name must not persist an over-limit head,
+      // but trimming the composed string drops the "· 副本" suffix users rely on.
+      name = original.name.take(512 - COPY_SUFFIX.length) + COPY_SUFFIX,
       entries = original.entries.map { it.copy(id = UUID.randomUUID().toString()) },
     ).validated()
     // Explicit copies retain interchange archives, but do not claim the original import fingerprint.
@@ -103,3 +104,5 @@ internal class WorldBookStorageAssets(private val database: ZoneuDatabase) {
     if (added.isNotEmpty()) dao.insertEntryIdentities(added.map { WorldBookEntryIdentityEntity(it.id, book.id) })
   }
 }
+
+private const val COPY_SUFFIX = " · 副本"

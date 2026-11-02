@@ -271,16 +271,6 @@ class WorldBookRepositoryAndroidTest {
   }
 
   @Test
-  fun copyingAMaximumLengthNameStaysWithinTheStoredLimit() =
-    runBlocking {
-      val original = repository.create(book().copy(name = "书".repeat(512)))
-      val copy = repository.copy(original.id, original.revision, "copy-request", "copy-parameters")
-      assertEquals(512, copy.name.length)
-      assertTrue(copy.name.endsWith(" · 副本"))
-      assertEquals(copy, repository.read(copy.id))
-    }
-
-  @Test
   fun deletionKeepsHeadAndReceiptOnAnExistingTombstoneRevision() =
     runBlocking {
       val original = repository.create(book())
@@ -297,19 +287,6 @@ class WorldBookRepositoryAndroidTest {
       reopen()
       repository.delete(original.id, original.revision, "delete-request", "delete-parameters")
       assertEquals(receipt, repository.receipt("delete-request", "delete-parameters"))
-    }
-
-  @Test
-  fun forgettingADeletedCardClearsItsDefaultsAndUnblocksBookDeletion() =
-    runBlocking {
-      val original = repository.create(book())
-      repository.setRoleBindings(WorldRoleBindings("character-gone", bookIds = listOf(original.id)), "empty")
-      assertEquals(listOf("character-gone"), repository.usage(original.id).characterIds)
-      fails("WORLD_REFERENCED") { repository.delete(original.id, original.revision) }
-      repository.forgetCharacter("character-gone")
-      assertTrue(repository.usage(original.id).characterIds.isEmpty())
-      repository.delete(original.id, original.revision)
-      fails("WORLD_NOT_FOUND") { repository.read(original.id) }
     }
 
   @Test

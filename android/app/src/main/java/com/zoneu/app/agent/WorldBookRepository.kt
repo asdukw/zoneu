@@ -50,7 +50,9 @@ class WorldBookRepository(val database: ZoneuDatabase) {
    * Without this the dead reference keeps every bound book undeletable forever.
    */
   suspend fun forgetCharacter(characterId: String): Unit = database.withTransaction {
-    worldCheck(worldUuid(characterId), "WORLD_INVALID_ARGUMENT")
+    // Character ids come from card files, not from this store: the same loose id rule
+    // as setRoleBindings — a UUID check here rejects cards that were bindable a moment ago.
+    worldCheck(worldId(characterId), "WORLD_INVALID_ARGUMENT")
     database.worldBooks().clearRoleBindings(characterId)
   }
 
