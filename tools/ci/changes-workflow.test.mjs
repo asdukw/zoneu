@@ -21,8 +21,12 @@ test('change-scope job passes commit SHAs to the tested helper and retains requi
   assert.equal(steps.find((step) => step.uses?.startsWith('actions/setup-node@')).with['node-version'], '24');
   const filter = steps.find((step) => step.id === 'filter');
   assert.equal(filter.run, 'node tools/ci/changes-scope.mjs');
-  assert.equal(filter.env.BASE_SHA, '${{ github.event.pull_request.base.sha || github.event.before }}');
-  assert.equal(filter.env.HEAD_SHA, '${{ github.event.pull_request.head.sha || github.sha }}');
+  assert.equal(filter.env.BASE_SHA, '${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}');
+  assert.equal(
+    filter.env.HEAD_SHA,
+    '${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}',
+  );
+  assert.ok('merge_group' in ci.on);
   assert.equal(ci.jobs.changes.outputs.code, '${{ steps.filter.outputs.code }}');
   for (const name of ['quality', 'test', 'offline-checks']) {
     assert.equal(ci.jobs[name].needs, 'changes');
@@ -33,11 +37,16 @@ test('change-scope job passes commit SHAs to the tested helper and retains requi
 test('quality and test wire only the optional encryption secret, with no secret-presence gate', () => {
   const ci = workflow('ci.yml');
   for (const name of ['quality', 'test']) {
-    const gradle = ci.jobs[name].steps.find((step) => step.uses?.startsWith('gradle/actions/setup-gradle@'));
-    assert.equal(gradle.with['cache-encryption-key'], '${{ secrets.GRADLE_ENCRYPTION_KEY }}');
-    assert.equal(gradle.if, undefined);
-    assert.equal(gradle.with['validate-wrappers'], true);
+    const gates = ci.jobs[name].steps.find((step) => step.uses === './.github/actions/setup-gates');
+    assert.ok(gates, `${name}: setup-gates`);
+    assert.equal(gates.with['cache-encryption-key'], '${{ secrets.GRADLE_ENCRYPTION_KEY }}');
+    assert.equal(gates.if, undefined);
   }
+  const action = load(readFileSync(resolve(root, '.github/actions/setup-gates/action.yml'), 'utf8'));
+  assert.equal(action.inputs['cache-encryption-key'].default, '');
+  const gradle = action.runs.steps.find((step) => step.uses?.startsWith('gradle/actions/setup-gradle@'));
+  assert.equal(gradle.with['validate-wrappers'], true);
+  assert.equal(gradle.with['cache-encryption-key'], '${{ inputs.cache-encryption-key }}');
   assert.deepEqual(ci.permissions, { contents: 'read' });
 });
 
