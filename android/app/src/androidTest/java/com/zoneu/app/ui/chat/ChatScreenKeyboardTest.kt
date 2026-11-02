@@ -56,7 +56,8 @@ class ChatScreenKeyboardTest {
     input.performClick()
     input.assertIsFocused()
 
-    state = state.copy(configSummary = "OpenCode Go · deepseek-v4.1-flash")
+    // 换一个会让顶栏重绘的字段即可：重点是「重组不等于开始跑」。
+    state = state.copy(model = "deepseek-v4.1-flash")
     composeTestRule.waitForIdle()
     input.assertIsFocused()
   }
